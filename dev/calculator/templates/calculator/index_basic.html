@@ -1,0 +1,38 @@
+{% extends "calculator/base.html" %}
+{% include "calculator/ajax.html" %}
+{% load staticfiles %}
+{% block content %}
+
+<div class=""
+<div class="linktile">
+{% include "calculator/tile_main.html" %}
+</div>
+<div class="tile">
+{% include "calculator/tile_console.html" %}
+</div>
+<div class="tile">
+{% include "calculator/tile_new_slice.html" %}
+</div>
+<div class="tile">
+{% include "calculator/tile_calculation.html" %}
+</div>
+<div class="tile">
+{% include "calculator/tile_collection.html" %}
+</div>
+<div class="tile">
+{% include "calculator/tile_group.html" %}
+</div>
+<div class="tile">
+{% include "calculator/tile_simulation_list.html" %}
+</div>
+<div class="tile">
+{% include "calculator/tile_calculation_list.html" %}
+</div>
+<div class="tile">
+{% include "calculator/tile_collection_list.html" %}
+</div>
+<div class="tile">
+{% include "calculator/tile_group_list.html" %}
+</div>
+
+{% endblock content %}

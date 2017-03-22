@@ -1,0 +1,9 @@
+{% include "simulator/base.html" %}
+{% if form_simulation %}
+<h3>Build simulation</h3>
+<form action="build_simulation" method="post" enctype="multipart/form-data">
+{% csrf_token %}
+{{ form_simulation.as_p }}
+<input type="submit" value="Submit" />
+</form>
+{% endif %}

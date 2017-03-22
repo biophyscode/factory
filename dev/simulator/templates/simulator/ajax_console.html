@@ -1,0 +1,57 @@
+<script type="text/javascript">
+// CSRF code
+function getCookie(name) {
+    var cookieValue = null;
+    var i = 0;
+    if (document.cookie && document.cookie !== '') {
+        var cookies = document.cookie.split(';');
+        for (i; i < cookies.length; i++) {
+            var cookie = jQuery.trim(cookies[i]);
+            // Does this cookie string begin with the name we want?
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+var csrftoken = getCookie('csrftoken');
+function csrfSafeMethod(method) {
+    // these HTTP methods do not require CSRF protection
+    return (/^(GET|HEAD|OPTIONS|TRACE)$/.test(method));
+}
+$.ajaxSetup({
+    crossDomain: false, // obviates need for sameOrigin test
+    beforeSend: function(xhr, settings) {
+        if (!csrfSafeMethod(settings.type)) {
+            xhr.setRequestHeader("X-CSRFToken", csrftoken);
+        }
+    }
+}); 
+function doUpdate() {
+$.ajax({
+    url: 'logger',
+    type: 'get',
+    cache: true,
+    success: function(data) {
+        $('#result').show();
+        if(data.running){
+            // only change text if running so the log remains after the calculation
+            if(data.line!='') { document.getElementById("destination").value = data.line; }
+            document.getElementById('destination').scrollTop = 
+                document.getElementById('destination').scrollHeight;
+            document.getElementById("destination").style.overflow = "hidden"; 
+        } else { 
+            document.getElementById("destination").style.overflow="visible"; 
+        }
+    },
+    failure: function(data) { 
+        $('#result').append("ERROR");
+    },
+});
+}
+
+doUpdate()
+setInterval("doUpdate()",1500);
+</script>

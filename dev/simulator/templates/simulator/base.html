@@ -1,0 +1,34 @@
+{% load staticfiles %}
+
+<head>
+	<title>factory</title>
+	<meta content="text/html; charset=utf-8" http-equiv="content-type">
+	<meta name="description" content=""/>
+	<meta name="keywords" content=""/>
+	<link rel="icon" href="favicon.ico" type="image/x-icon" />
+	<link rel="stylesheet" type="text/css" href="{% static "simulator/style_simulator.css" %}">
+	<script type="text/javascript" src="{% static "simulator/jquery-1.10.2.min.js" %}"></script>
+	<script type="text/javascript" src="{% static "simulator/freewall.js" %}"></script>
+</head>
+<body>
+
+{% block content %}
+{% endblock %}
+
+<script type="text/javascript">
+	var wall = new Freewall("#freewall");
+	wall.reset({
+		selector: '.brick',
+		animate: false,
+		cellW: 400,
+		cellH: 'auto',
+		onResize: function() {
+			wall.fitWidth();
+		}
+	});
+	wall.container.find('.brick img').load(function() {
+		wall.fitWidth();
+	});
+</script>
+
+</body>

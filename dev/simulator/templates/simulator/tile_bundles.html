@@ -1,0 +1,11 @@
+<h2>bundles</h2>
+pre-made simulation procedures<br>
+{% if bundles %}
+<ol>
+{% for bundle in bundles %}
+<li><code>{{ bundle.name }}: {{ bundle.path }}</code></li>
+{% endfor %}
+</ol>
+{% else %}
+<p>see the "link to bundles" tile to add a bundle</p>
+{% endif %}

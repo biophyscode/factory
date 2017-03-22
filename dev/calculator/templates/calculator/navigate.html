@@ -1,0 +1,30 @@
+{% load staticfiles %}
+
+<div id="freewall" class="free-wall" style="padding:10px;">
+<div class="brick" style="text-align:center;">
+<div class="inbrick">
+
+<table style="vertical-align:middle;text-align:center;" width="100%"><tr>
+
+<td align="center">
+<p style="color:grey;">
+<img height="60" width="60" style="color:grey;border: 3px solid white"
+src="{% static "simulator/factory.png" %}" border="0">
+<br><strong>factory</strong></p>
+</td>
+
+<td align="center">
+<a href="{{ SITE_URL }}/simulator" style="color:#000000;">
+<img height="60" width="60" style="border: 3px solid white"
+src="{% static "simulator/automacs.png" %}" border="0"></a>
+<a href="{{ SITE_URL }}/simulator" style="color:#000000;text-decoration:none;">
+<br><strong>simulator</strong></a></td>
+
+<td align="center">
+<a href="{{ SITE_URL }}/calculator" style="color:#000000;">
+<img height="60" width="60" style="border: 3px solid white"
+src="{% static "simulator/omnicalc.png" %}" border="0"></a>
+<a href="{{ SITE_URL }}/calculator" style="color:#000000;text-decoration:none;">
+<br><strong>calculator</strong></a></td></tr></table>
+
+</div></div></div>

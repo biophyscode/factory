@@ -1,0 +1,14 @@
+{% if form_simulation %}
+<form action="builder" method="post" enctype="multipart/form-data">
+<table>
+<tbody>
+<tr>
+<td></td>
+<td><input type="submit" value="build simulation"  name='build_button' id="submit"/></td>
+</tr>
+{% csrf_token %}
+{{ form_simulation.as_table }}
+</tbody>
+</table>
+</form>
+{% endif %}

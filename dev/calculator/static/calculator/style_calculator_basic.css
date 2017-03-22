@@ -1,0 +1,99 @@
+
+* { font-family:sans-serif; }
+a { color:black; }
+body p, ol li, ul a, ol a { font-family:monospace; }
+code p {
+  display:block; margin:0; padding:0;
+  font-family:Consolas,Courier New,monospace;
+}
+
+body, form, form input, form label { font-family:Consolas,Courier New,monospace; }
+form label { font-weight:400; }
+form input { font-weight:600; width: 250px;}
+form table ul { list-style-type: none; padding-left:0; }
+form table ul input { width:10px; text-align:left; }
+form table ul label { width:2000px; text-align:left; } 
+
+form input {
+  font-family:Consolas,Courier New,monospace;
+  border:1px solid #999999;
+  font-weight:600;
+  padding:3px;
+  width:250px;
+  background:#F5F5F5;
+}
+
+#submit { min-height:50px;background:gray;color:white;font-size:14pt; }
+
+.tile {
+  font-size:10pt;
+  position: relative;
+  float: left;
+  padding: 10px;
+  margin:10px;
+  background: #d1d1e0;
+  color: #262524;
+  text-align: left;
+  border: 2px solid #999999;
+  font-family:Consolas,Courier New,monospace;
+  min-width:300px;
+  min-height:200px;
+}
+
+.linktile {
+  font-size:10pt;
+  position: relative;
+  float: left;
+  padding: 10px;
+  margin:10px;
+  background: white;
+  color: #262524;
+  text-align: center;
+  border: 2px solid white;
+  font-family:Consolas,Courier New,monospace;
+  min-height:200px;
+  min-width:200px;
+  border: 3px solid black;
+}
+
+.tile form table textarea,select {
+  position: relative;
+  float: left;
+  text-align: left;
+  border: 2px solid white;
+  font-family:Consolas,Courier New,monospace;
+  min-width:250px;
+  background:#F5F5F5;
+  border:1px solid #999999;
+}
+
+#selected_change.tile { border:3px dotted black; }
+#result.tile textarea { 
+  font-size:8pt;
+  resize: none; 
+  min-width:600px; 
+  height:150px; 
+  font-family:Consolas,Courier New,monospace;
+  border:1px solid #999999;
+  padding:3px;
+  width:250px;
+  background:#F5F5F5;
+}
+
+.tile-wide {
+  font-size:10pt;
+  position: relative;
+  float: left;
+  width: 400px;
+  height: auto;
+  padding: 5px;
+  margin:10px;
+  background: #d1d1e0;
+  color: #262524;
+  text-align: left;
+  border: 2px solid white;
+  border: 2px solid black;
+}
+
+.linktile img { border: 2px solid black; }
+

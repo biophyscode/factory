@@ -1,0 +1,6 @@
+# minimial requirements for factory via anaconda "conda" (i.e. not "pip")
+
+cython
+numpy
+scipy
+Django

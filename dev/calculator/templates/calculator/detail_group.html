@@ -1,0 +1,40 @@
+{% extends "calculator/base.html" %}
+{% block content %}
+
+<div style="clear:both;"></div>
+
+<div class="tile-col" style="width:300px;">
+<h2>group: {{ group.name }}</h2>
+<code><p>
+selection: "{{ group.selection }}"<br>
+<h3>collections:</h3>
+{% if collections %}
+<ol>
+{% for col in collections %}
+<li>{{ col.name }}</li>
+{% endfor %}
+</ol>
+{% else %}
+<p>no collections yet</p>
+{% endif %}
+</p></code>
+</div>
+
+<div class="tile-col">
+<form action="group{{ group.id }}" method="post" enctype="multipart/form-data">
+<table style="text-align:left">
+<colgroup>
+<col style="text-align:right">
+<col style="width:300">
+</colgroup>  
+<tbody>
+{% csrf_token %}
+<br>
+<tr><td></td><td><input type="submit" value="update group" style="width:150"/></td></tr>
+{{ group_form.as_table }}
+</tbody>
+</table>
+</form>
+</div>
+
+{% endblock %}

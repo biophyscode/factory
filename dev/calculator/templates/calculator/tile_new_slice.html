@@ -1,0 +1,11 @@
+<form action="new_slice" method="post" enctype="multipart/form-data">
+<table>
+<tbody>
+{% csrf_token %}
+<br>
+<tr><td></td><td><input type="submit" value="new slice" id="submit"/></td></tr>
+<!--<tr><td></td><td>{{ slice_form_doc }}</td>-->
+{{ slice_form.as_table }}
+</tbody>
+</table>
+</form>

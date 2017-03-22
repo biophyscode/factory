@@ -1,0 +1,11 @@
+<h2>collections</h2>
+a named set of simulations
+{% if collections %}
+<ol>
+{% for col in collections %}
+<li><a href="col{{ col.pk }}">{{ col.name }}</a></li>
+{% endfor %}
+</ol>
+{% else %}
+<p>no collections yet</p>
+{% endif %}

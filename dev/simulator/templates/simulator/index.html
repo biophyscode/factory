@@ -1,0 +1,44 @@
+{% extends "simulator/base.html" %}
+{% load staticfiles %}
+{% block content %}
+
+<div id="freewall" class="free-wall" style="padding:10px;">
+
+<div class="brick" style="text-align:center;">
+<div class="inbrick">
+{% include "simulator/tile_main.html" %}	
+</div></div>
+
+{% include "simulator/tile_queue.html" %}
+
+<div class="brick"><div class="inbrick">
+{% include "simulator/tile_menu.html" %}
+</div></div>
+
+<div class="brick"><div class="inbrick">
+{% include "simulator/tile_new_simulation.html" %}
+</div></div>
+
+<div class="brick"><div class="inbrick">
+{% include "simulator/tile_new_source.html" %}
+</div></div>
+
+<div class="brick"><div class="inbrick">
+{% include "simulator/tile_new_bundle.html" %}
+</div></div>
+
+<div class="brick"><div class="inbrick">
+{% include "simulator/tile_simulations.html" %}
+</div></div>
+
+<div class="brick"><div class="inbrick">
+{% include "simulator/tile_sources.html" %}
+</div></div>
+
+<div class="brick"><div class="inbrick">
+{% include "simulator/tile_bundles.html" %}
+</div></div>
+
+</div>
+
+{% endblock %}

@@ -1,0 +1,28 @@
+{% if selected_group != -1 %}
+<div class="" id="selected_change">
+<form action="grp{{ selected_group.pk }}update" method="post" enctype="multipart/form-data">
+<table>
+<tbody>
+{% csrf_token %}
+<br>
+<tr><td></td><td><input type="submit" value="update group" id="submit"/></td></tr>
+{{ group_form.as_table }}
+<tr><td></td><td><a href="/calculator/">cancel update</a></td></tr>
+</tbody>
+</table>
+</form>
+</div>
+{% else %}
+<div class="">
+<form action="new_group" method="post" enctype="multipart/form-data">
+<table>
+<tbody>
+{% csrf_token %}
+<br>
+<tr><td></td><td><input type="submit" value="new group" id="submit"/></td></tr>
+{{ group_form.as_table }}
+</tbody>
+</table>
+</form>
+</div>
+{% endif %}

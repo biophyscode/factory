@@ -1,0 +1,14 @@
+{% if form_sources %}
+<form action="upload_sources" method="post" enctype="multipart/form-data">
+<table>
+<tbody>
+<tr>
+<td></td>
+<td><input type="submit" value="upload sources" name='upload_button' id="submit"/></td>
+</tr>
+{% csrf_token %}
+{{ form_sources.as_table }}
+</tbody>
+</table>
+</form>
+{% endif %}

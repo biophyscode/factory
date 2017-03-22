@@ -1,0 +1,98 @@
+{% extends "simulator/base.html" %}
+{% block content %}
+
+<div style="clear:both;"></div>
+
+<div class="tile-col">
+{% if form_simulation %}
+<form action="builder" method="post" enctype="multipart/form-data">
+<table style="text-align:left">
+<colgroup>
+<col style="text-align:right">
+<col style="width:300">
+</colgroup>  
+<tbody>
+<tr>
+<td></td>
+<td><input type="submit" value="build simulation"  name='build_button' id="submit"/></td>
+</tr>
+{% csrf_token %}
+{{ form_simulation.as_table }}
+</tbody>
+</table>
+</form>
+{% endif %}
+</div>
+
+<div class="tile-col">
+{% if form_sources %}
+<form action="upload_sources" method="post" enctype="multipart/form-data">
+<table style="text-align:left">
+<colgroup>
+<col style="text-align:right">
+<col style="width:300">
+</colgroup>  
+<tbody>
+<tr>
+<td></td>
+<td><input type="submit" value="upload sources" name='upload_button' id="submit"/></td>
+</tr>
+{% csrf_token %}
+{{ form_sources.as_table }}
+</tbody>
+</table>
+</form>
+{% endif %}
+</div>
+
+<div style="clear:both;"></div>
+
+<div class="tile-col">
+<h2>simulations</h2>
+<code>a single simulation system or replicate</code><br>
+{% if allsims %}
+<ol>
+{% for sim in allsims %}
+<li><a href="/simulator/sim{{ sim.id }}/">{{ sim.name }}</a></li>
+{% endfor %}
+</ol>
+{% else %}
+<p>build a simulation below</p>
+{% endif %}
+</div>
+
+<div class="tile-col">
+<h2>sources</h2>
+<code>input data including structures and topologies</code><br>
+{% if allsources %}
+<ol>
+{% for source in allsources %}
+<li><a href="/simulator/source{{ source.id }}/">{{ source.name }}</a></li>
+{% endfor %}
+</ol>
+{% else %}
+<p>add sources below</p>
+{% endif %}
+</div>
+
+<div class="tile-col">
+<h2>queue</h2>
+<code>running and incoming simulations</code><br>
+{% if alljobs %}
+<ol>
+{% for job in alljobs %}
+<li><a href="/simulator/sim{{ job.simulation.id }}/">{{ job.simulation.name }}<a/>
+{% if job.pid != -1 %} 
+<a href="/simulator/background_job_kill{{ job.id }}/">terminate <small>(PID:{{ job.pid }})</small><a/>
+{% else %}
+waiting
+{% endif %}
+</li>
+{% endfor %}
+</ol>
+{% else %}
+<p>no jobs</p>
+{% endif %}
+</div>
+
+{% endblock %}

@@ -1,0 +1,18 @@
+{% extends "calculator/base.html" %}
+{% block content %}
+
+<div style="clear:both;"></div>
+
+<div class="tile-col-code">
+<h2>paths</h2>
+{{ paths|linebreaks }}
+</div>
+
+<div style="clear:both;"></div>
+
+<div class="tile-col-code">
+<h2>GROMACS</h2>
+{{ gromacs_settings }}
+</div>
+
+{% endblock %}

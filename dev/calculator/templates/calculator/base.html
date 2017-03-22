@@ -1,0 +1,52 @@
+{% load staticfiles %}
+
+<head>
+	<title>factory</title>
+	<meta content="text/html; charset=utf-8" http-equiv="content-type">
+	<meta name="description" content=""/>
+	<meta name="keywords" content=""/>
+	<link rel="icon" href="favicon.ico" type="image/x-icon" />
+	<link rel="stylesheet" type="text/css" href="{% static "calculator/style_calculator.css" %}">
+	<link rel="stylesheet" type="text/css" href="{% static "calculator/pygments.css" %}">
+	<script type="text/javascript" src="{% static "calculator/jquery-1.10.2.min.js" %}"></script>
+	<script type="text/javascript" src="{% static "calculator/freewall.js" %}"></script>
+</head>
+<body>
+
+{% include "calculator/ajax.html" %}
+
+{% block content %}
+{% endblock %}
+
+<script type="text/javascript">
+	var wall = new Freewall("#freewall");
+	wall.reset({
+		selector: '.brick',
+		animate: true,
+		cellW: 350,
+		cellH: 'auto',
+		onResize: function() {
+			wall.fitWidth();
+		}
+	});
+	wall.container.find('.brick img').load(function() {
+		wall.fitWidth();
+	});
+
+/*
+$(function() {
+	$('text.metadata_toggle').click( function() {
+    	var divId = $(this).attr('id').replace(/toggle_metadata_/,'#text_metadata_');
+    	alert(divId);
+        $(divId).hide();
+    });
+});
+
+$(function() {
+	$('.image_metadata_text').hide();
+});
+*/
+
+</script>
+
+</body>

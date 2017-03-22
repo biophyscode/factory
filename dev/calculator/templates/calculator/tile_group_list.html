@@ -1,0 +1,11 @@
+<h2>groups</h2>
+an atom or molecule selection code
+{% if groups %}
+<ol>
+{% for group in groups %}
+<li><a href="grp{{ group.pk }}">{{ group.name }}</a></li>
+{% endfor %}
+</ol>
+{% else %}
+<p>no group yet</p>
+{% endif %}

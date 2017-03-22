@@ -1,0 +1,27 @@
+# minimial requirements for factory via virtualenv
+
+cython
+numpy
+scipy
+h5py
+biopython # install before MDAnalysis otherwise KDTree errors
+MDAnalysis
+joblib
+
+matplotlib
+brewer2mpl
+Pillow # requires libjpeg8-devel
+celery
+flower
+Django
+django-celery
+django-rq
+django-lockdown
+redis
+
+PyYAML
+docutils
+#Sphinx>=1.4.4
+#numpydoc
+#sphinx-better-theme
+#beautifulsoup4

@@ -1,0 +1,13 @@
+{% include "simulator/base.html" %}
+
+<div class="brick" style="text-align:center;">
+<div class="inbrick">
+{% include "calculator/tile_main.html" %}
+</div></div>
+<div style="clear:both;"></div>
+
+<h2>source: {{ source.name }}</h2>
+<code><p>
+{{ files|linebreaks }} 
+</p></code>
+

@@ -1,0 +1,256 @@
+{% include "calculator/base.html" %}
+{% include "calculator/ajax.html" %}
+
+<!--MENU-->
+
+<div class="tile" style="vertical-align:text-bottom">
+<h3></h3><br>
+<form action="compute" method="post" enctype="multipart/form-data">
+{% csrf_token %}
+<input type="submit" value="COMPUTE" style="width:150;height:50;font-size:2.0em;"/></td></tr>
+</form>
+<div style="text-align:left">
+<ol>
+<li><a href="rethumb">refresh thumbnails</a></li>
+<li><a href="{{ SITE_URL }}/simulator/amxdocs/index.html">simulator docs</a></li>
+<li><a href="{{ SITE_URL }}/calculator/amxdocs/index.html">calculator docs</a></li>
+<li><a href="{{ SITE_URL }}/admin" target="_blank">admin console</a></li>
+<li><a href="http://localhost:5555" target="_blank">computation cluster</a></li>
+<li><a href="{{ SITE_URL }}/calculator/#image_section">jump to images</a></li>
+</ol>
+</div>
+<!--{% if running_calculations|length > 1 %}
+<br><a <br><a href="{{ SITE_URL }}/admin" target="_blank">administration</a> target="_blank" style="color:red">celery jam error</a>
+{% endif %}-->
+</div>
+
+<!--CONSOLE-->
+
+<div id="result" class="tile-col">
+<h3>console</h3>
+<textarea id="destination"></textarea>
+</div>
+
+<div style="clear: both;"></div>
+
+<!--SLICES FORM-->
+
+<div class="tile-col">
+<form action="new_slice" method="post" enctype="multipart/form-data">
+<table style="text-align:left">
+<colgroup>
+<col style="text-align:right">
+<col style="width:300">
+</colgroup>  
+<tbody>
+{% csrf_token %}
+<br>
+<tr><td></td><td><input type="submit" value="new slice" id="submit"/></td></tr>
+<!--<tr><td></td><td>{{ slice_form_doc }}</td>-->
+{{ slice_form.as_table }}
+</tbody>
+</table>
+</form>
+</div>
+
+<!--CALCULATION FORM-->
+
+{% if selected_calculation != -1 %}
+<div class="tile-col" id="selected_change">
+<form action="calc{{selected_calculation.pk}}update" method="post" enctype="multipart/form-data">
+<table style="text-align:left">
+<colgroup>
+<col style="text-align:right">
+<col style="width:300">
+</colgroup>  
+<tbody>
+{% csrf_token %}
+<br>
+<tr><td></td><td><input type="submit" value="update calculation" id="submit"/></td></tr>
+{{ calculation_form.as_table }}
+<tr><td></td><td><a href="/calculator/">cancel update</a></td></tr>
+</tbody>
+</table>
+</form>
+</div>
+{% else %}
+<div class="tile-col">
+<form action="new_calculation" method="post" enctype="multipart/form-data">
+<table style="text-align:left">
+<colgroup>
+<col style="text-align:right">
+<col style="width:300">
+</colgroup>  
+<tbody>
+{% csrf_token %}
+<br>
+<tr><td></td><td><input type="submit" value="new calculation" id="submit"/></td></tr>
+{{ calculation_form.as_table }}
+</tbody>
+</table>
+</form>
+</div>
+{% endif %}
+
+<!--COLLECTION FORM-->
+
+{% if selected_collection != -1 %}
+<div class="tile-col" id="selected_change">
+<form action="col{{ selected_collection.pk }}update" method="post" enctype="multipart/form-data">
+<table style="text-align:left">
+<colgroup>
+<col style="text-align:right">
+<col style="width:300">
+</colgroup>  
+<tbody>
+{% csrf_token %}
+<br>
+<tr><td></td><td><input type="submit" value="update collection" id="submit"/></td></tr>
+{{ collection_form.as_table }}
+<tr><td></td><td><a href="/calculator/">cancel update</a></td></tr>
+</tbody>
+</table>
+</form>
+</div>
+{% else %}
+<div class="tile-col">
+<form action="new_collection" method="post" enctype="multipart/form-data">
+<table style="text-align:left">
+<colgroup>
+<col style="text-align:right">
+<col style="width:300">
+</colgroup>  
+<tbody>
+{% csrf_token %}
+<br>
+<tr><td></td><td><input type="submit" value="new collection" id="submit"/></td></tr>
+{{ collection_form.as_table }}
+</tbody>
+</table>
+</form>
+</div>
+{% endif %}
+
+<!--GROUP FORM-->
+
+{% if selected_group != -1 %}
+<div class="tile-col" id="selected_change">
+<form action="grp{{ selected_group.pk }}update" method="post" enctype="multipart/form-data">
+<table style="text-align:left">
+<colgroup>
+<col style="text-align:right">
+<col style="width:300">
+</colgroup>  
+<tbody>
+{% csrf_token %}
+<br>
+<tr><td></td><td><input type="submit" value="update group" id="submit"/></td></tr>
+{{ group_form.as_table }}
+<tr><td></td><td><a href="/calculator/">cancel update</a></td></tr>
+</tbody>
+</table>
+</form>
+</div>
+{% else %}
+<div class="tile-col">
+<form action="new_group" method="post" enctype="multipart/form-data">
+<table style="text-align:left">
+<colgroup>
+<col style="text-align:right">
+<col style="width:300">
+</colgroup>  
+<tbody>
+{% csrf_token %}
+<br>
+<tr><td></td><td><input type="submit" value="new group" id="submit"/></td></tr>
+{{ group_form.as_table }}
+</tbody>
+</table>
+</form>
+</div>
+{% endif %}
+
+<div style="clear: both;"></div>
+
+<!--LISTS-->
+
+<div class="tile-col">
+<h2>simulations</h2>
+<code>a single simulation system or replicate</code><br>
+<a href="refresh_times">refresh trajectory times</a>
+{% if simulations %}
+<ol>
+{% for sim in simulations %}
+<li><a href="sim{{ sim.pk }}">{{ sim.name }}</a>
+{% if sim.time_sequence != '' %}
+({{ sim.time_sequence }} ns)
+{% else %}
+(no times yet)
+{% endif %}
+</li>
+{% endfor %}
+</ol>
+{% else %}
+<p>no simulations yet</p>
+{% endif %}
+</div>
+
+<div class="tile-col">
+<h2>calculations</h2>
+<code>an omnicalc simulation and corresponding script</code>
+{% if calculations %}
+<ol>
+{% for calc in calculations %}
+<li><a href="calc{{ calc.pk }}">{{ calc.name }}</a></li>
+{% endfor %}
+</ol>
+{% else %}
+<p>no calculations yet</p>
+{% endif %}
+</div>
+
+<div class="tile-col">
+<h2>collections</h2>
+<code>a named set of simulations</code>
+{% if collections %}
+<ol>
+{% for col in collections %}
+<li><a href="col{{ col.pk }}">{{ col.name }}</a></li>
+{% endfor %}
+</ol>
+{% else %}
+<p>no collections yet</p>
+{% endif %}
+</div>
+
+<div class="tile-col">
+<h2>groups</h2>
+<code>an atom or molecule selection code</code>
+{% if groups %}
+<ol>
+{% for group in groups %}
+<li><a href="grp{{ group.pk }}">{{ group.name }}</a></li>
+{% endfor %}
+</ol>
+{% else %}
+<p>no group yet</p>
+{% endif %}
+</div>
+
+<!--IMAGES-->
+
+<div style="clear: both;"></div>
+<a name="image_section"></a>
+
+{% for key,fn,metadat in image_fns %}
+<div class="tile-col" style="max-width:400;">
+<strong>{{ key }}</strong><br>
+<a href="media/{{ fn }}"><img src="media/thumbs/{{ fn }}" style="max-width:350;max-height:400"></a>
+<ol>
+{% for key,val in metadat.items %}
+<li>{{ key }}: {{ val }}</li>
+{% endfor %}
+</ol>
+</div>
+{% endfor %}
+<div style="clear: both;"></div>

@@ -1,0 +1,20 @@
+{% block content %}
+
+<div class="tile-col">
+<form action="new_group" method="post" enctype="multipart/form-data">
+<table style="text-align:left">
+<colgroup>
+<col style="text-align:right">
+<col style="width:300">
+</colgroup>  
+<tbody>
+{% csrf_token %}
+<br>
+<tr><td></td><td><input type="submit" value="new group" style="width:150"/></td></tr>
+{{ group_form.as_table }}
+</tbody>
+</table>
+</form>
+</div>
+
+{% endblock %}

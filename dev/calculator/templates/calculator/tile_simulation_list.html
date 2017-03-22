@@ -1,0 +1,21 @@
+<h2>simulations</h2>
+<a id="submit" href="refresh_times" 
+style="padding:2px 12px 2px 12px;border:1px solid #999999;font-weight:600;font-size:1.0em;"/>
+refresh trajectory times</a><br>
+a single simulation system or replicate<br>
+{% if simulations %}
+<ol>
+{% for sim in simulations %}
+<li><a href="../simulator/sim{{ sim.pk }}">{{ sim.name }}</a>
+{% if sim.time_sequence != '' %}
+({{ sim.time_sequence }} ps)
+{% else %}
+(no times yet)
+{% endif %}
+</li>
+{% endfor %}
+</ol>
+
+{% else %}
+<p>no simulations yet</p>
+{% endif %}

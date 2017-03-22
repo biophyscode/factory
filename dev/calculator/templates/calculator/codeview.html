@@ -1,0 +1,14 @@
+{% extends "calculator/base.html" %}
+{% block content %}
+{% load code_syntax %}
+
+<div style="clear:both;"></div>
+<div class="tile-col">
+
+{% include "calculator/navigate.html" %}
+
+<h2>{{ path|safe }}</h2>
+
+{{ code|highlight|safe }}
+
+{% endblock %}

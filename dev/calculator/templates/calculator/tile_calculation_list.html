@@ -1,0 +1,11 @@
+<h2>calculations</h2>
+an omnicalc simulation and corresponding script
+{% if calculations %}
+<ol>
+{% for calc in calculations %}
+<li><a href="calc{{ calc.pk }}">{{ calc.name }}</a></li>
+{% endfor %}
+</ol>
+{% else %}
+<p>no calculations yet</p>
+{% endif %}
