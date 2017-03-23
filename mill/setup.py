@@ -68,11 +68,14 @@ class FactoryEnv:
 		#---! should we register every time this runs? or just when there is a refresh?
 		self.register_finished()
 		#---now that the environment is updated, we source it
-		if sys.version_info<(3,0): execfile(self.activate_script,dict(__file__=self.activate_script))
-		else: exec(open(self.activate_script).read())
-		#---! RYAN DOES NOT TRUST ^^^ BECAUSE IT DOES NOT UPDATE BASH $VIRTUAL_ENV. check that this worked!
-		#---! it would be nice to have a welcome message that confirms your environment is correct
-		if hasattr(self,self.welcome): getattr(self,self.welcome)()
+		try:
+			if sys.version_info<(3,0): execfile(self.activate_script,dict(__file__=self.activate_script))
+			else: exec(open(self.activate_script).read())
+			#---! RYAN DOES NOT TRUST ^^^ BECAUSE IT DOES NOT UPDATE BASH $VIRTUAL_ENV. check that this worked!
+			#---! it would be nice to have a welcome message that confirms your environment is correct
+			if hasattr(self,self.welcome): getattr(self,self.welcome)()
+		except:
+			print('ENV FAILURE')
 
 	def check_spotchange(self):
 		"""
@@ -156,7 +159,7 @@ class FactoryEnv:
 		if not anaconda_location: 
 			raise Exception('download anaconda and run `make set anaconda_location <path>`')
 		install_fn = abspath(anaconda_location)
-		if not os.path.isfile(install_fn): raise Exception('cannot find %s'%fn)
+		if not os.path.isfile(install_fn): raise Exception('cannot find %s'%install_fn)
 		bash('bash %s -b -p %s/env'%(install_fn,os.getcwd()))
 
 	def setup_anaconda_refresh(self):
