@@ -140,7 +140,8 @@ class FactoryEnv:
 		#---custom handling for required upgrades
 		#---! would be useful to make this systematic
 		required_upgrades = ['Sphinx>=1.4.4','numpydoc','sphinx-better-theme','beautifulsoup4']
-		bash('pip install -U %s'%' '.join([
+		#---! here and above we should source the environment first, but this is chicken-egg
+		bash('source env/bin/activate && pip install -U %s'%' '.join([
 			"'%s'"%i for i in required_upgrades]),log='logs/log-virtualenv-pip')
 
 	def welcome_message(self):

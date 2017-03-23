@@ -298,7 +298,10 @@ def connect_single(connection_name,**specs):
 	#---! can this handle github paths? probably not. check and warn the user.
 	new_calcs_repo = not (os.path.isdir(abspath(specs['repo'])) and (
 		os.path.isdir(abspath(specs['repo'])+'/.git') or os.path.isfile(abspath(specs['repo'])+'/HEAD')))
-	if new_calcs_repo: raise Exception('dev')
+	#---see if the repo is a URL. code 200 means it exists
+	from urllib2 import urlopen
+	code = urlopen(specs['repo']).code
+	if new_calcs_repo and code!=200: raise Exception('dev')
 	else: bash('make clone_calcs source="%s"'%specs['repo'],cwd=specs['calc'])
 
 	#---configure omnicalc 
@@ -449,7 +452,7 @@ def connect(name=None):
 	if not connects: raise Exception('no connections available. try `make template` for some examples.')
 	#---read all connection files into one dictionary
 	toc = read_connection(*connects)
-	if name and name not in toc: raise Exception('cannot find projected named "%s" in the connections'%name)
+	if name and name not in toc: raise Exception('cannot find projecte named "%s" in the connections'%name)
 	#---which connections we want to make
 	targets = [name] if name else toc.keys()
 	#---loop over desired connections
