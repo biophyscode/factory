@@ -1,2 +1,11 @@
 *.pyc
 __pycache__
+.pipeline_up_to_date
+calc/
+config.py
+connections/
+data/
+env/
+logs/
+pack/
+site/
