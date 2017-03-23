@@ -78,7 +78,7 @@ def bash(command,log=None,cwd=None,inpipe=None):
 			extra = '\n'.join([i for i in [stdout,stderr] if i])
 			raise Exception('[ERROR] bash error'+(': '+extra if extra else ''))
 
-def set_config(what,*args,**kwargs):
+def set_config(*args,**kwargs):
 	"""
 	Command-line interface to update configuration in config_fn (typically config.py). 
 	This function routes ``make set ...` requests to functions here in the acme.py module, which manages all 
@@ -86,30 +86,23 @@ def set_config(what,*args,**kwargs):
 	function to ``make set ...``.
 	This was adapted from the automacs.runner.acme version to be more generic.
 	"""
-	config_toc = {'species':'single','anaconda_location':'single'}
-	if what not in config_toc: raise Exception('the argument to `make set` must be in %s'%config_toc.keys())
-	if config_toc[what] == 'single':
-		if len(args)<1: raise Exception('must have an argument to set config %s'%what)
-		elif len(args)>1: raise Exception('too many arguments for singleton setting %s: %s'%(what,args))
-		add_config(what,value=args[0],many=False)
-	else: raise Exception('DEV')
+	config_toc = {'species':'single','anaconda_location':'single','automacs':'single','omnicalc':'single'}
+	if len(args)>=2: what,args = args[0],args[1:]
+	else: what = None
+	if what and what not in config_toc: raise Exception('the argument to `make set` must be in %s'%config_toc.keys())
+	if what:
+		if config_toc[what] == 'single':
+			if len(args)<1: raise Exception('must have an argument to set config %s'%what)
+			elif len(args)>1: raise Exception('too many arguments for singleton setting %s: %s'%(what,args))
+			add_config(what,value=args[0],many=False)
+		else: raise Exception('DEV')
+	if kwargs:
+		invalids = [i for i in kwargs if i not in config_toc]
+		if invalids: raise Exception('invalid keys: %s'%invalids)
+		for key,val in kwargs.items():
+			if config_toc[key]=='single': add_config(key,value=val,many=False)
+			else: raise Exception('DEV')
 	return
-	#---previous version
-	#---currently we can modify the following components of the config file.
-	settables = 'module inputs commands links'.split()
-	if what not in settables: raise Exception('make set target must be in %r'%settables)
-	elif what=='module': connect(*args,**kwargs)
-	elif what=='inputs': 
-		if kwargs!={}: raise Exception('no kwargs allowed but received %s'%str(kwargs))
-		if len(args)!=1: 
-			raise Exception(
-				'only one argument to `make set inputs` is allowed but received %s'%str(args))
-		add_config('inputs',value=args[0],many=True)
-	elif what=='commands': 
-		if kwargs!={}: raise Exception('no kwargs allowed but received %s'%str(kwargs))
-		for arg in args: add_config('commands',value=arg,many=True)
-	elif what=='links':
-		for arg in args: add_config('links',*args,hashed=True)
 
 def add_config(*args,**kwargs):
 	"""

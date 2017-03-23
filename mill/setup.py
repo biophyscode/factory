@@ -117,11 +117,13 @@ class FactoryEnv:
 		#---! automatically start redis? prevent dump.rdb?
 		#---preliminary checks
 		#---! default redis conf?
-		if is_terminal_command('redis-cli'):
-			virtualenv_fail('redis-cli',
-				extra='if you have redis installed, '+
-					'you can run "sudo /usr/sbin/redis-server --daemonize yes". '+
-					'if your redis is local (via e.g. anacodna) you can omit "sudo"')
+		#---! this needs to be somewhere else ??? the whole point of this is to avoid that.
+		if False:
+			if is_terminal_command('redis-cli'):
+				virtualenv_fail('redis-cli',
+					extra='if you have redis installed, '+
+						'you can run "sudo /usr/sbin/redis-server --daemonize yes". '+
+						'if your redis is local (via e.g. anacodna) you can omit "sudo"')
 		#---you can sandbox or not
 		venv_opts = "--no-site-packages " if sandbox else "--system-site-packages "
 		#---note that virtualenv can re-run on the env folder without issue
@@ -198,3 +200,5 @@ def renew(species=None,sure=False):
 				'make set anaconda_location ~/libs/Anaconda3-4.2.0-Linux-x86_64.sh',
 				'make test']))
 		else: raise Exception('no testset for species %s'%species)
+		bash('make set omnicalc="http://github.com/bradleyrp/omnicalc"')
+		bash('make set automacs="http://github.com/bradleyrp/automacs"')

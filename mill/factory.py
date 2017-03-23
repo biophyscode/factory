@@ -103,7 +103,7 @@ def package_django_module(projname):
 	#try: bash('echo -e "y\n" | pip uninstall %s &> logs/log-pip-$projname'%projname)
 	#except: pass
 	#---install the package
-	bash('pip install -y -U pack/%s/dist/%s-0.1.tar.gz 1>&2 logs/log-pip-%s'%(projname,projname,projname))
+	bash('pip install -U pack/%s/dist/%s-0.1.tar.gz'%(projname,projname),log='logs/log-pip-%s'%projname)
 
 def prepare_vhosts(rootdir,connection_name,port=None,dev=True):
 
@@ -189,9 +189,11 @@ def connect_single(connection_name,**specs):
 	#---check if database exists and if so, don't make superuser
 	make_superuser = not os.path.isfile(specs['database'])
 
-	#---get automacs from a central place if it is empty
+	#---get automacs,omnicalc from a central place if it is empty
 	automacs_upstream = specs.get('automacs',config.get('automacs',None))
 	if not automacs_upstream: raise Exception('need automacs in config.py for factory or the connection')
+	omnicalc_upstream = specs.get('omnicalc',config.get('omnicalc',None))
+	if not omnicalc_upstream: raise Exception('need omnicalc in config.py for factory or the connection')
 
 	#---interpret paths from connect.yaml for PROJECT_NAME/PROJECT_NAME/settings.py in the django project
 	#---these paths are all relative to the rootspot, the top directory for the factory codes
@@ -226,10 +228,12 @@ def connect_single(connection_name,**specs):
 			fp.write("DATABASES['default']['NAME'] = \"%s\"\n"%os.path.abspath(specs['database']))
 		if 'lockdown' in specs: fp.write(lockdown_extra%specs['lockdown'])
 		fp.write(get_omni_dataspots)
-		#---append a lookup table for spots locations here
-		path_lookups = dict([(key,re.sub('PROJECT_NAME',connection_name,
-			abspath(os.path.join(val['route_to_data'],val['spot_directory']))))
-			for key,val in specs['spots'].items()])
+		if specs.get('spots',None):
+			#---append a lookup table for spots locations here
+			path_lookups = dict([(key,re.sub('PROJECT_NAME',connection_name,
+				abspath(os.path.join(val['route_to_data'],val['spot_directory']))))
+				for key,val in specs['spots'].items()])
+		else: path_lookups = {}
 		fp.write('PATHFINDER = %s\n'%str(path_lookups))
 		#---if port is in the specs we serve the development server on that port and celery on the next
 		if 'port' in specs and backrun in ['celery','celery_backrun','old']: 
@@ -249,7 +253,7 @@ def connect_single(connection_name,**specs):
 	#---clone omnicalc if necessary
 	omnicalc_previous = os.path.isdir('calc/%s'%connection_name)
 	if not omnicalc_previous:
-		bash('git clone %s calc/%s'%(specs['omnicalc'],connection_name),
+		bash('git clone %s calc/%s'%(omnicalc_upstream,connection_name),
 			 log='logs/log-%s-git-omni'%connection_name)
 		#---if this is fresh we run `make setup` because that provides a minimal config.py
 		bash('make setup',cwd=specs['calc'])
@@ -274,8 +278,10 @@ def connect_single(connection_name,**specs):
 				(connection_name,connection_name,connection_name))	
 
 	#---! what does this migration do?
+	print('[NOTE] migrating ...')
 	bash('python site/%s/manage.py migrate'%connection_name,
 		log='logs/log-%s-migrate'%connection_name)
+	print('[NOTE] migrating ... done')
 	if make_superuser:
 		print("[STATUS] making superuser")
 		su_script = "from django.contrib.auth.models import User; "+\
