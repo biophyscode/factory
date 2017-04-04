@@ -3,9 +3,64 @@ from .models import *
 from django.contrib import messages
 from django.conf import settings
 from django.forms import formset_factory
-from multiple_uploads import *
 import re,subprocess
 from django.db.models.fields import BLANK_CHOICE_DASH
+
+#---! previously multiple_uploads.py
+
+from django.forms import ValidationError
+
+class MultiFileInput(forms.FileInput):
+
+	def render(self,name,value,attrs={}):
+
+		attrs['multiple'] = 'multiple'
+		return super(MultiFileInput,self).render(name,None,attrs=attrs)
+
+	def value_from_datadict(self,data,files,name):
+
+		if hasattr(files,'getlist'): return files.getlist(name)
+		else: return [files.get(name)]
+ 
+class MultiFileField(forms.FileField):
+
+	widget = MultiFileInput
+	default_error_messages = {
+		'min_num': u"Ensure at least %(min_num)s files are uploaded (received %(num_files)s).",
+		'max_num': u"Ensure at most %(max_num)s files are uploaded (received %(num_files)s).",
+		'file_size' : u"File: %(uploaded_file_name)s, exceeded maximum upload size."}
+
+	def __init__(self,*args,**kwargs):
+	
+		self.min_num = kwargs.pop('min_num',0)
+		self.max_num = kwargs.pop('max_num',None)
+		self.maximum_file_size = kwargs.pop('maximum_file_size',None)
+		super(MultiFileField, self).__init__(*args,**kwargs)
+
+	def to_python(self, data):
+
+		ret = []
+		for item in data: ret.append(super(MultiFileField, self).to_python(item))
+		return ret
+
+	def validate(self, data):
+	
+		super(MultiFileField,self).validate(data)
+		num_files = len(data)
+		if len(data) and not data[0]: num_files = 0
+		if num_files < self.min_num:
+			raise ValidationError(self.error_messages['min_num'] % 
+				{'min_num': self.min_num, 'num_files': num_files})
+			return
+		elif self.max_num and  num_files > self.max_num:
+			raise ValidationError(self.error_messages['max_num'] % 
+				{'max_num': self.max_num,'num_files': num_files})
+		for uploaded_file in data:
+			if uploaded_file.size > self.maximum_file_size:
+				raise ValidationError(self.error_messages['file_size'] % 
+				{ 'uploaded_file_name':uploaded_file.name})
+
+#---! end multiple_uploads.py
 
 #---some functions require absolute paths
 def path_expander(x): return os.path.abspath(os.path.expanduser(x))
@@ -19,8 +74,7 @@ def get_program_choices():
 	#---add metaruns to program choices
 	program_choices = ['protein','cgmd-bilayer','homology']
 	try:
-		print "TRYING TO GET BUNDLES"
-
+		print("TRYING TO GET BUNDLES")
 		for pk,path in [[obj.pk,obj.path] for obj in Bundle.objects.all()]:
 			kwargs = dict(shell=True,executable="/bin/bash",stdout=subprocess.PIPE,stderr=subprocess.PIPE)
 			path_full = os.path.expanduser(os.path.abspath(path))
@@ -29,11 +83,11 @@ def get_program_choices():
 			regex = '^[0-9]+\s*[^\s]+\s*[^\s]+\s*(metarun[^\s]+)'
 			for m in [re.findall(regex,i)[0] for i in ans.split('\n') if re.match(regex,i)]:
 				program_choices.append(obj.name+' > '+m)
-			print "checking"
-			print path
-			print path_full
-		print program_choices
-		print "WIN!"
+			print("checking")
+			print(path)
+			print(path_full)
+		print(program_choices)
+		print("WIN!")
 	except: pass
 	return list(set(program_choices))
 

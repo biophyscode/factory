@@ -293,16 +293,16 @@ def find_simulation(code,new=False):
 		proc = subprocess.Popen('make look',cwd=os.path.join(settings.ROOTSPOT,settings.CALCSPOT),
 			shell=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE,stdin=subprocess.PIPE)
 		catch = proc.communicate(
-			input="print '>>>'+work.spotname_lookup('%s')\nsys.exit()\n'"%str(code))
+			input="print('>>>'+work.spotname_lookup('%s')\nsys.exit()\n')"%str(code))
 		try: 
 			regex = '^>>>([^\s]+)$'
 			selected, = [re.findall(regex,i)[0] for i in ('\n'.join(catch)).split('\n') if re.match(regex,i)]
 			spotname = str(selected)
 			lookup_spotnames[code] = spotname
-			print '[NOTE] found %s under spotname "%s"'%(code,spotname)
+			print('[NOTE] found %s under spotname "%s"'%(code,spotname))
 		except Exception as e:
-			print '[WARNING] failed to find "%s" in omnicalc so perhaps '%code+\
-				'it is new returning dropspot+code'
+			print('[WARNING] failed to find "%s" in omnicalc so perhaps '%code+
+				'it is new returning dropspot+code')
 			return os.path.join(settings.DROPSPOT,code,'')
 	return os.path.join(settings.PATHFINDER[lookup_spotnames[code]],code,'')
 
@@ -415,7 +415,7 @@ def detail_simulation(request,id):
 				errorlog = 'script-s%02d-%s.log'%(detect_last(location),sim.program)
 				#---replaced "2>> with 2>&1"
 				command = './script-%s.py >> %s 2>&1'%(sim.program,errorlog)
-			print '[SHERPA] running "%s"'%command
+			print('[SHERPA] running "%s"'%command)
 			sherpa.apply_async(args=(command,),kwargs={'cwd':location},retry=False,queue=settings.PROJECT_NAME+'.queue_sim',routing_key=settings.PROJECT_NAME+'.queue_sim')
 		#---old-school background runner uses a simpler method
 		elif settings.BACKRUN == 'old':
@@ -425,7 +425,7 @@ def detail_simulation(request,id):
 			else:
 				errorlog = 'script-s%02d-%s.log'%(detect_last(location),sim.program)
 				command = './script-%s.py'%sim.program
-			print '[SHERPA] running old-school "%s"'%command
+			print('[SHERPA] running old-school "%s"'%command)
 			syscall = '%s cmd="%s" log="%s" cwd="%s" name="amxjob"'%(
 				os.path.join(settings.ROOTSPOT,'deploy/backrun.py'),command,errorlog,location)
 			os.remove(os.path.join(location,'waiting.log'))
@@ -537,9 +537,9 @@ def simulation_cancel(request,id,debug=False):
 	cwd = find_simulation(sim.code)
 	wait_fn = os.path.join(cwd,'waiting.log')
 	if os.path.isfile(wait_fn):
-		print "[WARNING] canceling scheduled execution of the simulation at: %s"%cwd
+		print("[WARNING] canceling scheduled execution of the simulation at: %s"%cwd)
 		os.remove(wait_fn)
-	else: print "[WARNING] could not locate a waitfile in: %s"%cwd
+	else: print("[WARNING] could not locate a waitfile in: %s"%cwd)
 	return HttpResponseRedirect(reverse('simulator:index'))
 
 def simulation_terminate(request,id,debug=False):
@@ -552,8 +552,8 @@ def simulation_terminate(request,id,debug=False):
 	cwd = find_simulation(sim.code)
 	run_fn = os.path.join(cwd,'script-stop-job.sh')
 	if os.path.isfile(run_fn):
-		print "[WARNING] terminating execution of the simulation at: %s"%cwd
+		print("[WARNING] terminating execution of the simulation at: %s"%cwd)
 		os.system(run_fn)
 		if os.path.isfile(run_fn): os.remove(run_fn)
-	else: print '[WARNING] could not locate a stop-job.sh in "%s" so I cannot terminate it'%cwd
+	else: print('[WARNING] could not locate a stop-job.sh in "%s" so I cannot terminate it'%cwd)
 	return HttpResponseRedirect(reverse('simulator:index'))

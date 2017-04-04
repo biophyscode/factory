@@ -2,7 +2,7 @@
 
 __all__ = ['test','set_config','locate','testdocker']
 
-import os,glob
+import os,glob,subprocess
 from setup import FactoryEnv
 from config import bash,set_config
 
@@ -10,7 +10,9 @@ def test():
 	"""
 	Source and test the environment.
 	"""
-	env = FactoryEnv()
+	from makeface import fab
+	from distutils.spawn import find_executable
+	print(fab('ENVIRONMENT:','cyan_black')+' %s'%find_executable('python'))
 
 def testdocker():
 	"""

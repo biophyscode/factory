@@ -13,7 +13,7 @@ def sherpacalc(job_row_id,autoreload=False,log='log',cwd='./'):
 	REMEMBER THAT IF YOU CHANGE THIS FUNCTION YOU HAVE TO RESTART THE WORKER!!!
 	"""
 
-	print "[STATUS] running sherpacalc at with cwd=%s at %s"%(cwd,os.getcwd())
+	print("[STATUS] running sherpacalc at with cwd=%s at %s"%(cwd,os.getcwd()))
 	job = subprocess.Popen('make compute log=%s autoreload'%log,cwd=cwd,
 		shell=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
 	#---! should we gut the background jobs? and rework the queue viewer?

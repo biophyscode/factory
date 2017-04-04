@@ -4,3 +4,8 @@ cython
 numpy
 scipy
 Django
+joblib
+PyYAML
+h5py
+Pillow
+matplotlib

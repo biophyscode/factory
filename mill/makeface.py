@@ -16,7 +16,14 @@ and ``**kwargs`` because arguments are passed from the ``Makefile`` to the pytho
 functions from the terminal by running ``make my_python_function some_true_bool_flag kwarg="some value"``. 
 Set ``commands`` in the ``config.py`` managed by :any:`acme <acme>` to specify which files provide functions 
 to the interface. You can set ``__all__`` in these files to hide extraneous functions from ``make``. 
+
+This makeface was forked from automacs and upgraded with the environment handler. It was itself forked
+and decorated with a prechecker for omnicalc later on. Current with makefile as of 2017.3.28.
 """
+
+default_config = {
+	'commands_aliases':[('set','set_config')],
+	'commands': ['mill/setup.py','mill/shipping.py','mill/factory.py'],}
 
 #---settings for globbing for functions
 config_fn = 'config.py'
@@ -184,8 +191,6 @@ if __name__ == "__main__":
 	#---note this happens every time (even on make tab-completion) to collect scripts
 	#---...from all open-ended sources. timing: it only requires about 3 ms
 	if not os.path.isfile(config_fn): 
-		default_config = {'commands_aliases':[('set','set_config')],
-			'commands': ['mill/setup.py', 'mill/shipping.py', 'mill/factory.py'],}
 		with open(config_fn,'w') as fp: fp.write(str(default_config))
 	if 'config_fn' in globals() and 'config_key' in globals(): 
 		with open(config_fn) as fp: configurator = eval(fp.read())
@@ -225,6 +230,9 @@ if __name__ == "__main__":
 			del makeface_funcs[name]
 	#---command aliases for usability
 	commands_aliases = configurator.get('commands_aliases',[])
+	#---environment handler
+	env_prepend = configurator.get('activate_env','')
+	if env_prepend: print('[STATUS] config.py: activate environment: "%s"'%env_prepend)
 	if any([len(i)!=2 for i in commands_aliases]): 
 		raise Exception('commands_aliases must be a list of tuples that specify (target,alias) functions')
 	#----fails on docs.py when looking for preplist

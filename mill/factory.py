@@ -143,10 +143,6 @@ def connect_single(connection_name,**specs):
 	The big kahuna.
 	"""
 
-	import yaml
-
-	#---always source the environment
-	env = FactoryEnv()
 	config = read_config()
 
 	#---! for some reason py35 does not get sourced correctly but py27 does ??? see django-admin executable
@@ -289,7 +285,7 @@ def connect_single(connection_name,**specs):
 		p = subprocess.Popen('python ./site/%s/manage.py shell'%(connection_name),		
 			stdin=subprocess.PIPE,stderr=subprocess.PIPE,stdout=open(os.devnull,'w'),
 			shell=True,executable='/bin/bash')
-		catch = p.communicate(input=su_script)[0]
+		catch = p.communicate(input=su_script if sys.version_info<(3,0) else su_script.encode())[0]
 	print("[STATUS] new project \"%s\" is stored at ./data/%s"%(connection_name,connection_name))
 	print("[STATUS] replace with a symlink if you wish to store the data elsewhere")
 
@@ -298,10 +294,13 @@ def connect_single(connection_name,**specs):
 	#---! can this handle github paths? probably not. check and warn the user.
 	new_calcs_repo = not (os.path.isdir(abspath(specs['repo'])) and (
 		os.path.isdir(abspath(specs['repo'])+'/.git') or os.path.isfile(abspath(specs['repo'])+'/HEAD')))
-	#---see if the repo is a URL. code 200 means it exists
-	from urllib2 import urlopen
-	code = urlopen(specs['repo']).code
-	if new_calcs_repo and code!=200: raise Exception('dev')
+	if new_calcs_repo and re.match('^http',specs['repo']):
+		#---see if the repo is a URL. code 200 means it exists
+		if sys.version_info<(3,0): from urllib2 import urlopen
+		else: from urllib.request import urlopen
+		code = urlopen(specs['repo']).code
+		if code!=200: raise Exception('repo appears to be http but it does not exist')
+		else: bash('make clone_calcs source="%s"'%specs['repo'],cwd=specs['calc'])
 	else: bash('make clone_calcs source="%s"'%specs['repo'],cwd=specs['calc'])
 
 	#---configure omnicalc 
