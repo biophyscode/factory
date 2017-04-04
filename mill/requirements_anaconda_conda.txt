@@ -9,3 +9,10 @@ PyYAML
 h5py
 Pillow
 matplotlib
+# MAYAVI procedure requires some conda and mayavi in pip
+#anaconda
+#vtk
+#pyqt
+#distribute
+#pyside
+#qt
