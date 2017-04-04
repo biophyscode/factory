@@ -4,11 +4,12 @@
 Prepare or check that the environment is ready for the factory.
 """
 
-__all__ = ['nuke','renew','setup']
+__all__ = ['nuke','renew','setup','init']
 
-import os,sys,time,re,shutil
+import os,sys,time,re,shutil,textwrap
 from config import read_config,write_config,is_terminal_command,bash,abspath
 from makeface import fab
+from datapack import asciitree
 
 class FactoryEnv:
 
@@ -59,7 +60,21 @@ class FactoryEnv:
 		self.timestamp = self.config.get('setup_stamp',None)
 		kind = self.config.get('species',None)
 		if kind not in self.meta:
-			raise Exception('environment type is %s, but it must be one of: %s'%(kind,self.meta.keys()))
+			msg = ('It looks like this is your first time.'
+				'To get started with the factory, you have to choose a virtual environment. '
+				'Even if you have lots of dank packages installed on your linux box, we still use (at least) '
+				'a virtualenv to make sure you have all of the correct dependencies. We recommend '
+				'`virtualenv` for users with lots of required packages, `virtualenv_sandbox` for those with '
+				'major dependency issues (looking at you, Debian), and `anaconda` for advanced users who '
+				'want that sweet, sweet 3D viz and protection against totally screwing up your window '
+				'manager.')
+			msg_instruct = 'Before continuing, run `make set species <name>` where the name comes '+\
+				'from the following list: '
+			print('\n'+fab('WELCOME to the FACTORY','cyan_black')+'\n')
+			print('\n'.join(textwrap.wrap(msg,width=80)))
+			print('\n'+'\n'.join(textwrap.wrap(msg_instruct,width=80))+'\n')
+			asciitree({'envs':self.meta.keys()})
+			sys.exit(1)
 		self.kind = kind
 		for key in self.meta[kind]: self.__dict__[key] = self.meta[kind][key]
 		#---make sure all requirements files are available no matter what 
@@ -221,3 +236,9 @@ def renew(species=None,sure=False):
 		else: raise Exception('no testset for species %s'%species)
 		bash('make set omnicalc="http://github.com/bradleyrp/omnicalc"')
 		bash('make set automacs="http://github.com/bradleyrp/automacs"')
+
+def init(refresh=False):
+	"""
+	Language is fluid. Some people want to start with `init`.
+	"""
+	setup(refresh=refresh)

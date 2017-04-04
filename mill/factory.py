@@ -3,7 +3,7 @@
 """
 """
 
-import os,sys,glob,re,shutil,subprocess
+import os,sys,glob,re,shutil,subprocess,textwrap
 from config import bash,read_config
 from makeface import abspath
 from datapack import asciitree
@@ -187,9 +187,13 @@ def connect_single(connection_name,**specs):
 
 	#---get automacs,omnicalc from a central place if it is empty
 	automacs_upstream = specs.get('automacs',config.get('automacs',None))
-	if not automacs_upstream: raise Exception('need automacs in config.py for factory or the connection')
+	msg = 'You can tell the factory where to get omnicalc/automacs by running e.g. '+\
+		'`make set automacs=http://github.com/someone/automacs`.' 
+	if not automacs_upstream: 
+		raise Exception('need automacs in config.py for factory or the connection. '+msg)
 	omnicalc_upstream = specs.get('omnicalc',config.get('omnicalc',None))
-	if not omnicalc_upstream: raise Exception('need omnicalc in config.py for factory or the connection')
+	if not omnicalc_upstream: 
+		raise Exception('need omnicalc in config.py for factory or the connection. '+msg)
 
 	#---interpret paths from connect.yaml for PROJECT_NAME/PROJECT_NAME/settings.py in the django project
 	#---these paths are all relative to the rootspot, the top directory for the factory codes
@@ -294,6 +298,7 @@ def connect_single(connection_name,**specs):
 	#---! can this handle github paths? probably not. check and warn the user.
 	new_calcs_repo = not (os.path.isdir(abspath(specs['repo'])) and (
 		os.path.isdir(abspath(specs['repo'])+'/.git') or os.path.isfile(abspath(specs['repo'])+'/HEAD')))
+	#---check that a calcs repo from the internet exists
 	if new_calcs_repo and re.match('^http',specs['repo']):
 		#---see if the repo is a URL. code 200 means it exists
 		if sys.version_info<(3,0): from urllib2 import urlopen
@@ -301,7 +306,22 @@ def connect_single(connection_name,**specs):
 		code = urlopen(specs['repo']).code
 		if code!=200: raise Exception('repo appears to be http but it does not exist')
 		else: bash('make clone_calcs source="%s"'%specs['repo'],cwd=specs['calc'])
-	else: bash('make clone_calcs source="%s"'%specs['repo'],cwd=specs['calc'])
+	#---check that the repo has a colon in the path, implying a remote ssh connection is necessary
+	elif new_calcs_repo and ':' in specs['repo']:
+		print('[WARNING] assuming that the calcs repository is on a remote machine: %s'%specs['repo'])
+		bash('make clone_calcs source="%s"'%specs['repo'],cwd=specs['calc'])
+	#---if the calcs repo exists locally, we just clone it
+	elif not new_calcs_repo: bash('make clone_calcs source="%s"'%specs['repo'],cwd=specs['calc'])
+	#---make a fresh calcs repo because the meta file points to nowhere
+	else:
+		os.mkdir(specs['repo'])
+		bash('git init',cwd=specs['repo'])
+		msg = ('When connecting to project %s, the "repo" flag in your connection file points to nowhere. '
+			'We made a blank git repository at %s. You should develop your calculations there, push that '
+			'repo somewhere safe, and distribute it to all your friends, who can use the "repo" flag to '
+			'point to it when they start their factories.')
+		print('\n'.join(['[NOTE] %s'%i for i in textwrap.wrap(
+			msg%(connection_name,specs['repo']),width=80)]))
 
 	#---configure omnicalc 
 	#---note that make set commands can change the configuration without a problem

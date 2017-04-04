@@ -9,6 +9,8 @@ PyYAML
 h5py
 Pillow
 matplotlib
+beautifulsoup4
+pygments
 # MAYAVI procedure requires some conda and mayavi in pip
 #anaconda
 #vtk
