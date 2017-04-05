@@ -1,20 +1,21 @@
-# minimial requirements for factory via anaconda "conda" (i.e. not "pip")
-
-cython
+# omnicalc requirements
+# removed cython
 numpy
 scipy
-Django
+MDAnalysis
 joblib
 PyYAML
 h5py
 Pillow
 matplotlib
+# factory requirements
+Django
 beautifulsoup4
 pygments
-# MAYAVI procedure requires some conda and mayavi in pip
-#anaconda
-#vtk
-#pyqt
-#distribute
-#pyside
-#qt
+# omnicalc 3D (via mayavi) requirements
+# anaconda
+vtk
+pyqt
+distribute
+pyside
+qt

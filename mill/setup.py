@@ -177,8 +177,22 @@ class FactoryEnv:
 		install_fn = abspath(anaconda_location)
 		if not os.path.isfile(install_fn): raise Exception('cannot find %s'%install_fn)
 		bash('bash %s -b -p %s/env'%(install_fn,os.getcwd()))
-		#---we have to source the root anaconda here
-		if self.use_python2: bash('source env/bin/activate && conda create python=2 -y -n py2')
+		if self.use_python2: 
+			#---we have to source the root anaconda here. later the source_cmd will refer to "py2"
+			bash(' && '.join([
+				'source env/bin/activate',
+				'conda create python=2 -y -n py2'
+				]))
+			#---we use the conda environment handler to avoid using the user site-packages in ~/.local
+			env_etc = 'env/envs/py2/etc'
+			env_etc_conda = 'env/envs/py2/etc/conda'
+			for dn in [env_etc,env_etc_conda]:
+				if not os.path.isdir(dn): os.mkdir(dn)
+			for dn in ['activate.d','deactivate.d']: os.mkdir(os.path.join(env_etc_conda,dn))
+			with open(os.path.join(env_etc_conda,'activate.d','env_vars.sh'),'w') as fp:
+				fp.write('#!/bin/sh\nexport PYTHONNOUSERSITE=True\n')
+			with open(os.path.join(env_etc_conda,'deactivate.d','env_vars.sh'),'w') as fp:
+				fp.write('#!/bin/sh\nunset PYTHONNOUSERSITE\n')
 
 	def setup_anaconda_refresh(self):
 		"""
@@ -187,8 +201,12 @@ class FactoryEnv:
 		if self.use_python2:
 			self.loader_commands['env_activate'] = 'env/envs/py2/bin/activate py2'
 			self.source_cmd = 'source env/envs/py2/bin/activate py2'
+		#---! hard-coding the channel for MDAnalysis here.
+		#---! ...this is required because MDANalysis gives PyFPE_jbuf error if numpy is 1.12
+		bash(self.source_cmd+' && conda config --add channels MDAnalysis')
 		for fn in self.reqs_conda:
 			print('[STATUS] installing packages via conda from %s'%fn)
+			#---we tell conda to ignore local user site-packages because version errors
 			bash(self.source_cmd+' && conda install -y --file %s'%fn,
 				log='logs/log-anaconda-conda-%s'%os.path.basename(fn))
 		for fn in self.reqs_pip:
