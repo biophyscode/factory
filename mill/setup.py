@@ -177,7 +177,8 @@ class FactoryEnv:
 		install_fn = abspath(anaconda_location)
 		if not os.path.isfile(install_fn): raise Exception('cannot find %s'%install_fn)
 		bash('bash %s -b -p %s/env'%(install_fn,os.getcwd()))
-		if self.use_python2: bash(self.source_cmd+' && conda create python=2 -y -n py2')
+		#---we have to source the root anaconda here
+		if self.use_python2: bash('source env/bin/activate && conda create python=2 -y -n py2')
 
 	def setup_anaconda_refresh(self):
 		"""
