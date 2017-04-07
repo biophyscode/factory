@@ -1,0 +1,4 @@
+# strays not available via conda
+django-celery
+brewer2mpl
+mayavi

@@ -4,11 +4,12 @@
 Prepare or check that the environment is ready for the factory.
 """
 
-__all__ = ['nuke','renew']
+__all__ = ['nuke','renew','setup','init']
 
-import os,sys,time,re,shutil
+import os,sys,time,re,shutil,textwrap
 from config import read_config,write_config,is_terminal_command,bash,abspath
 from makeface import fab
+from datapack import asciitree
 
 class FactoryEnv:
 
@@ -23,18 +24,23 @@ class FactoryEnv:
 			'setup_kickstart':'setup_virtualenv',
 			'setup_refresh':'setup_virtualenv_refresh',
 			'loader_commands':{
-				'env_activate':'source env/bin/activate',
+				'env_activate':'env/bin/activate',
 				'env_deactivate':'deactivate'},
-			'activate_script':'env/bin/activate_this.py',
-			'welcome':'welcome_message'},
+			'welcome':'welcome_message',
+			'source_cmd':'source env/bin/activate'},
 		#---need python2 vs 3
 		'anaconda':{
 			'reqs_conda':['mill/requirements_anaconda_conda.txt'],
-			'reqs_pip':[],
+			'reqs_pip':['mill/requirements_anaconda_pip.txt'],
 			'setup_kickstart':'setup_anaconda',
 			'setup_refresh':'setup_anaconda_refresh',
-			'activate_script':'env/bin/pyvenv',
-			'welcome':'welcome_message'}}
+			'loader_commands':{
+				'env_activate':'env/bin/activate',
+				'env_deactivate':'deactivate'},
+			'welcome':'welcome_message',
+			'source_cmd':'source env/bin/activate',
+			#---the flag for python2 must happen when the environment is created
+			'use_python2':True}}
 	#---! need a place to store env path !!! (see above; it's in the activate_script)	
 	#---sandbox mimics the virtualenv and uses the same setup, with an extra flag not encoded here
 	meta['virtualenv_sandbox'] = dict(meta['virtualenv'])
@@ -42,7 +48,7 @@ class FactoryEnv:
 	#---folder we always need at root
 	required_folders = ['logs','connections']
 
-	def __init__(self,):
+	def __init__(self,refresh=False):
 		"""
 		Create a factory environment from instructions in the config, and setup or refresh if necessary.
 		"""
@@ -54,28 +60,34 @@ class FactoryEnv:
 		self.timestamp = self.config.get('setup_stamp',None)
 		kind = self.config.get('species',None)
 		if kind not in self.meta:
-			raise Exception('environment type is %s, but it must be one of: %s'%(kind,self.meta.keys()))
+			msg = ('It looks like this is your first time.'
+				'To get started with the factory, you have to choose a virtual environment. '
+				'Even if you have lots of dank packages installed on your linux box, we still use (at least) '
+				'a virtualenv to make sure you have all of the correct dependencies. We recommend '
+				'`virtualenv` for users with lots of required packages, `virtualenv_sandbox` for those with '
+				'major dependency issues (looking at you, Debian), and `anaconda` for advanced users who '
+				'want that sweet, sweet 3D viz and protection against totally screwing up your window '
+				'manager.')
+			msg_instruct = 'Before continuing, run `make set species <name>` where the name comes '+\
+				'from the following list: '
+			print('\n'+fab('WELCOME to the FACTORY','cyan_black')+'\n')
+			print('\n'.join(textwrap.wrap(msg,width=80)))
+			print('\n'+'\n'.join(textwrap.wrap(msg_instruct,width=80))+'\n')
+			asciitree({'envs':self.meta.keys()})
+			sys.exit(1)
 		self.kind = kind
 		for key in self.meta[kind]: self.__dict__[key] = self.meta[kind][key]
 		#---make sure all requirements files are available no matter what 
-		do_refresh = self.check_spotchange() if self.timestamp else True
+		do_refresh = (self.timestamp and self.check_spotchange()) or refresh
 		#---environment creation is divided into two parts: first run and refreshes
 		start_time = time.time()
 		if not self.timestamp: getattr(self,self.setup_kickstart)()
 		if not self.timestamp or do_refresh: getattr(self,self.setup_refresh)()
 		if do_refresh or not self.timestamp:
 			print('[NOTE] setup took %.1f minutes'%((time.time()-start_time)/60.))
-		#---! should we register every time this runs? or just when there is a refresh?
+		#---register all changes and welcome the user to the plush new environment
 		self.register_finished()
-		#---now that the environment is updated, we source it
-		try:
-			if sys.version_info<(3,0): execfile(self.activate_script,dict(__file__=self.activate_script))
-			else: exec(open(self.activate_script).read())
-			#---! RYAN DOES NOT TRUST ^^^ BECAUSE IT DOES NOT UPDATE BASH $VIRTUAL_ENV. check that this worked!
-			#---! it would be nice to have a welcome message that confirms your environment is correct
-			if hasattr(self,self.welcome): getattr(self,self.welcome)()
-		except:
-			print('ENV FAILURE')
+		if hasattr(self,self.welcome): getattr(self,self.welcome)()
 
 	def check_spotchange(self):
 		"""
@@ -95,10 +107,10 @@ class FactoryEnv:
 		"""
 		Update the config.py to make note of the changes to the environment.
 		"""
-		#---! MOVE THIS TO THE self.meta
 		#---record success and load/unload commands for the environment
+		if hasattr(self,'loader_commands'): 
+			self.config['activate_env'] = self.loader_commands['env_activate']
 		self.config['setup_stamp'] = time.strftime('%Y%m%d%H%M%s')
-		### for key,val in self.loader_commands.items(): self.config[key] = val
 		write_config(self.config)
 
 	def setup_virtualenv_sandbox(self): 
@@ -138,18 +150,22 @@ class FactoryEnv:
 		"""
 		for fn in self.reqs:
 			print('[STATUS] installing packages via pip from %s'%fn)
-			bash('source env/bin/activate && pip install -r %s'%fn,
+			bash(self.source_cmd+' && pip install -r %s'%fn,
 				log='logs/log-virtualenv-pip-%s'%os.path.basename(fn))
 		#---custom handling for required upgrades
 		#---! would be useful to make this systematic
 		required_upgrades = ['Sphinx>=1.4.4','numpydoc','sphinx-better-theme','beautifulsoup4']
 		#---! here and above we should source the environment first, but this is chicken-egg
-		bash('source env/bin/activate && pip install -U %s'%' '.join([
+		bash(self.source_cmd+' && pip install -U %s'%' '.join([
 			"'%s'"%i for i in required_upgrades]),log='logs/log-virtualenv-pip')
 
 	def welcome_message(self):
-		print(fab('ENVIRONMENT','cyan_black'))
-		bash('which python')
+		"""
+		This is identical to the test function in shipping.py.
+		"""
+		from makeface import fab
+		from distutils.spawn import find_executable
+		print(fab('ENVIRONMENT:','cyan_black')+' %s'%find_executable('python'))
 
 	def setup_anaconda(self):
 		"""
@@ -161,15 +177,48 @@ class FactoryEnv:
 		install_fn = abspath(anaconda_location)
 		if not os.path.isfile(install_fn): raise Exception('cannot find %s'%install_fn)
 		bash('bash %s -b -p %s/env'%(install_fn,os.getcwd()))
+		if self.use_python2: 
+			#---we have to source the root anaconda here. later the source_cmd will refer to "py2"
+			bash(' && '.join([
+				'source env/bin/activate',
+				'conda create python=2 -y -n py2'
+				]))
+			#---we use the conda environment handler to avoid using the user site-packages in ~/.local
+			env_etc = 'env/envs/py2/etc'
+			env_etc_conda = 'env/envs/py2/etc/conda'
+			for dn in [env_etc,env_etc_conda]:
+				if not os.path.isdir(dn): os.mkdir(dn)
+			for dn in ['activate.d','deactivate.d']: os.mkdir(os.path.join(env_etc_conda,dn))
+			with open(os.path.join(env_etc_conda,'activate.d','env_vars.sh'),'w') as fp:
+				fp.write('#!/bin/sh\nexport PYTHONNOUSERSITE=True\n')
+			with open(os.path.join(env_etc_conda,'deactivate.d','env_vars.sh'),'w') as fp:
+				fp.write('#!/bin/sh\nunset PYTHONNOUSERSITE\n')
 
 	def setup_anaconda_refresh(self):
 		"""
 		Refresh the virtualenvironment.
 		"""
+		if self.use_python2:
+			self.loader_commands['env_activate'] = 'env/envs/py2/bin/activate py2'
+			self.source_cmd = 'source env/envs/py2/bin/activate py2'
+		#---! hard-coding the channel for MDAnalysis here.
+		#---! ...this is required because MDANalysis gives PyFPE_jbuf error if numpy is 1.12
+		bash(self.source_cmd+' && conda config --add channels MDAnalysis')
 		for fn in self.reqs_conda:
-			print('[STATUS] installing packages via pip from %s'%fn)
-			bash('source env/bin/activate && conda install -y --file %s'%fn,
+			print('[STATUS] installing packages via conda from %s'%fn)
+			#---we tell conda to ignore local user site-packages because version errors
+			bash(self.source_cmd+' && conda install -y --file %s'%fn,
 				log='logs/log-anaconda-conda-%s'%os.path.basename(fn))
+		for fn in self.reqs_pip:
+			print('[STATUS] installing packages via pip from %s'%fn)
+			bash(self.source_cmd+' && pip install -r %s'%fn,
+				log='logs/log-anaconda-conda-%s'%os.path.basename(fn))
+
+def setup(refresh=False):
+	"""
+	Both setup and nuke have kwargs so they can be used with rewn (worth it).
+	"""
+	env = FactoryEnv(refresh=True)
 		
 def nuke(sure=False):
 	"""
@@ -187,7 +236,7 @@ def nuke(sure=False):
 		for dn in ['env','logs','calc','data','pack','site']:
 			if os.path.isdir(dn): shutil.rmtree(dn)
 
-def renew(species=None,sure=False):
+def renew(species=None,sure=False,anaconda_location=None):
 	"""
 	These are test sets for the environment. Be careful -- it erases your current environment!
 	"""
@@ -196,13 +245,22 @@ def renew(species=None,sure=False):
 		['`renew` is a test set that deletes everything. okay?','confirm']):
 		if not species: raise Exception('testset needs a species')
 		if species=='virtualenv':
-			bash('make nuke sure && make set species virtualenv && make test')
+			bash('make nuke sure && make set species virtualenv && make setup && make test')
 		elif species=='anaconda':
-			bash(' && '.join([
+			#---! hard-code for basic test case
+			if not anaconda_location: anaconda_location = '~/libs/Miniconda3-latest-Linux-x86_64.sh'
+			os.system(' && '.join([
 				'make nuke sure',
 				'make set species anaconda',
-				'make set anaconda_location ~/libs/Anaconda3-4.2.0-Linux-x86_64.sh',
+				'make set anaconda_location=%s'%anaconda_location,
+				'make setup',
 				'make test']))
 		else: raise Exception('no testset for species %s'%species)
 		bash('make set omnicalc="http://github.com/bradleyrp/omnicalc"')
 		bash('make set automacs="http://github.com/bradleyrp/automacs"')
+
+def init(refresh=False):
+	"""
+	Language is fluid. Some people want to start with `init`.
+	"""
+	setup(refresh=refresh)

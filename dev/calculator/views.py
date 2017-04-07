@@ -33,7 +33,7 @@ def collect_images():
 	"""
 
 	image_fns = [os.path.basename(fn) for fn in glob.glob(settings.PLOTSPOT+'/*.png')]
-	print image_fns
+	print(image_fns)
 	try:
 		names_path_meta = [(
 			re.sub('_',' ',re.findall('^fig\.([^\.]+)\.',fn)[0]),fn,
@@ -218,7 +218,7 @@ def refresh_times(request):
 		sn = sim.code	
 		miniscript = ';'.join([
 			"python -c \"execfile('./omni/base/header.py')",
-			"print '>>>'+str(work.get_timeseries('%s'))\"",
+			"print('>>>'+str(work.get_timeseries('%s')))\"",
 			])
 		proc = subprocess.Popen(miniscript%sn,cwd=settings.CALCSPOT,
 			shell=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
@@ -230,7 +230,7 @@ def refresh_times(request):
 			startstop = min([i[-1][0] for i in timeseq]),max([i[-1][1] for i in timeseq])
 			sim.time_sequence = '-'.join(['%.f'%(i/1.0) for i in startstop])
 			sim.save()
-		except Exception as e: print "[ERROR] exception: %s"%e
+		except Exception as e: print("[ERROR] exception: %s"%e)
 	return HttpResponseRedirect(reverse('calculator:index'))
 
 def view_settings(request):
@@ -300,7 +300,7 @@ def compute(*args,**kwargs):
 	Write the yaml file and run make compute.
 	"""
 
-	print "[STATUS] starting OMNICALC compute "
+	print("[STATUS] starting OMNICALC compute ")
 	#---prepare an a dictionary representing meta.yaml
 	outgoing = {'slices':{},'collections':{}}
 	for sl in Slice.objects.all():
@@ -370,7 +370,7 @@ def view_code(request,path):
 	Render a code to HTML.
 	"""
 
-	print "[STATUS] rendering code: %s"%path
+	print("[STATUS] rendering code: %s"%path)
 	with open(path) as fp: code = fp.read()
 	return render(request,'calculator/codeview.html',{'code':code,'path':path})
 

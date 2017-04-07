@@ -26,7 +26,7 @@ def post_job_tasks(program,cwd):
 			new_source.save()
 			os.mkdir(settings.DROPSPOT+'/sources/%s'%new_source.folder())
 			shutil.copy(cwd+'/'+best,settings.DROPSPOT+'sources/%s'%new_source.folder())
-	else: print "[WARNING] no post_job_tasks for method %s"%program
+	else: print("[WARNING] no post_job_tasks for method %s"%program)
 
 @shared_task(track_started=True,max_retries=0,bind=True,throws=(Terminated,))
 def sherpa(self,command,**kwargs):
@@ -38,7 +38,7 @@ def sherpa(self,command,**kwargs):
 	cwd = kwargs['cwd']
 	wait_fn = os.path.join(cwd,'waiting.log')
 	if not os.path.isfile(wait_fn):
-		print '[WARNING] sherpa tried to start a job with no "waiting.log" so exiting'
+		print('[WARNING] sherpa tried to start a job with no "waiting.log" so exiting')
 		return
 	else: os.remove(wait_fn)
 	job = subprocess.Popen(command,shell=True,cwd=cwd,preexec_fn=os.setsid)
@@ -57,10 +57,10 @@ def job_revoked(*args,**kwargs):
 	"""
 
 	request = kwargs['request']
-	print '[STATUS] revoking request '+str(request)
+	print('[STATUS] revoking request '+str(request))
 	cwd = request.kwargs['cwd']
 	pid_log = os.path.join(cwd,'PID.log')
 	with open(pid_log) as fp: pid = int(re.search('([0-9]+)',fp.read()).group())
-	print '[STATUS] killing PID %d and company'%pid
+	print('[STATUS] killing PID %d and company'%pid)
 	#---kill the group related to the session leader
 	os.system('pkill -TERM -g %d'%pid)

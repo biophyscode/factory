@@ -38,11 +38,11 @@ class Source(models.Model):
 		Remove the simulation directory via the admin page.
 		"""
 
-		print '[STATUS] deleting source %s'%self.name
+		print('[STATUS] deleting source %s'%self.name)
 		if not os.path.isdir(settings.DROPSPOT+'/sources/'+self.folder()):
-			print '[WARNING] that source cannot be found or deleted'
+			print('[WARNING] that source cannot be found or deleted')
 		else: shutil.rmtree(settings.DROPSPOT+'/sources/'+self.folder())
-		print '[STATUS] done'
+		print('[STATUS] done')
 		super(Source,self).delete()
 
 class SimulationQuerySet(models.QuerySet):
@@ -97,10 +97,10 @@ class Simulation(models.Model):
 		Remove the simulation directory via the admin page.
 		"""
 
-		print '[STATUS] deleting simulation %s'%self.name
+		print('[STATUS] deleting simulation %s'%self.name)
 		#---removed exception if the code is blank and now allow deletion even if no folder
 		if re.match('^\s*$',self.code) or not os.path.isdir(settings.DROPSPOT+self.code):
-			print '[WARNING] that simulation cannot be found or deleted (code="%s")'%self.code
+			print('[WARNING] that simulation cannot be found or deleted (code="%s")'%self.code)
 		else: shutil.rmtree(settings.DROPSPOT+'/'+self.code)
-		print '[STATUS] done'
+		print('[STATUS] done')
 		super(Simulation,self).delete()

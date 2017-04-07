@@ -8,13 +8,16 @@ notes
 
 #---get settings
 projname=$1
+if [[ -z $1 ]]; then echo "needs argument!" && exit 1; fi
 sitespot="site/"
 if [[ ! -d "$sitespot/$projname" ]]; then { echo "[ERROR] no project \"$sitespot/$projname\"" && exit 1; }; fi
-backrun=$(python -c "__file__='$sitespot/$projname/$projname/settings.py';execfile(__file__);print(BACKRUN)")
-DEVPORT=$(source env/bin/activate && python -c \
+backrun=$(python -c "__file__='$sitespot/$projname/$projname/settings.py';exec(open(__file__).read());print(BACKRUN)")
+#---REMOVED SOURCE BELOW
+DEVPORT=$(python -c \
 "__file__='$sitespot/$projname/$projname/settings.py';
-execfile(__file__);print DEVPORT if 'DEVPORT' in globals() else ''" \
-&& deactivate)
+exec(open(__file__).read());print(DEVPORT if 'DEVPORT' in globals() else '')" \
+)
+#---REMOVE DEACTIVATE ABOVE
 if [[ -z $DEVPORT ]]; then 
 DEVPORT=8000
 CELERYPORT=8001
@@ -45,7 +48,8 @@ echo "[SERVE] serving celery at $CELERYPORT"
 if [ -z $projname ]; then { echo "[USAGE] make run <project_name>"; exit; }; fi
 if [ "$projname" == "dev" ]; then { sitespot="./"; } fi
 
-source env/bin/activate
+##### source env/bin/activate
+
 if [[ -f logs/log-serve ]]; then rm logs/log-serve; fi
 #---open screens for the server, for the worker, and for flower
 echo "[SERVE] waiting for the servers" 
@@ -73,13 +77,14 @@ echo "[SERVE] flower monitor @ "$(echo $flower | tr -d '\r')
 #---old-school method
 elif [[ "$backrun" == "oldschool" ]]; then 
 
+# removed "pre="source env/bin/activate" \" from all of the following
+
 backrun_bin="./mill/backrun.py"
 
 #---use the backrun utility to start this job in the background
 $backrun_bin \
 name="devserver-$projname" \
 log="logs/log-serve" \
-pre="source env/bin/activate" \
 cmd="python $sitespot/$projname/manage.py runserver 0.0.0.0:$DEVPORT" \
 stopper="logs/script-stop-devserver.sh"
 
@@ -90,28 +95,24 @@ elif [[ "$backrun" == "celery_backrun" ]]; then
 $backrun_bin \
 name="devserver-$projname" \
 log="logs/log-serve" \
-pre="source env/bin/activate" \
 cmd="python $sitespot/$projname/manage.py runserver 0.0.0.0:$DEVPORT" \
 stopper="logs/script-stop-devserver-"$projname".sh"
 
 $backrun_bin \
 name="devserver-$projname-worker-calc" \
 log="logs/log-worker-calc" \
-pre="source env/bin/activate" \
 cmd="python $sitespot/$projname/manage.py celery -A $projname worker -n "$projname".queue_calc -Q "$projname".queue_calc --loglevel=INFO" \
 stopper="logs/script-stop-worker-calc-"$projname".sh"
 
 $backrun_bin \
 name="devserver-$projname-worker-sim" \
 log="logs/log-worker-sim" \
-pre="source env/bin/activate" \
 cmd="python $sitespot/$projname/manage.py celery -A $projname worker -n "$projname".queue_sim -Q "$projname".queue_sim --loglevel=INFO" \
 stopper="logs/script-stop-worker-sim-"$projname".sh"
 
 $backrun_bin \
 name="devserver-$projname-flower" \
 log="logs/log-flower" \
-pre="source env/bin/activate" \
 cmd="python $sitespot/$projname/manage.py celery -A $projname --port=$CELERYPORT flower" \
 stopper="logs/script-stop-flower-"$projname".sh"
 
