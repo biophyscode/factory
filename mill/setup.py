@@ -216,6 +216,7 @@ class FactoryEnv:
 
 def setup(refresh=False):
 	"""
+	Both setup and nuke have kwargs so they can be used with rewn (worth it).
 	"""
 	env = FactoryEnv(refresh=True)
 		
@@ -248,7 +249,7 @@ def renew(species=None,sure=False,anaconda_location=None):
 		elif species=='anaconda':
 			#---! hard-code for basic test case
 			if not anaconda_location: anaconda_location = '~/libs/Miniconda3-latest-Linux-x86_64.sh'
-			bash(' && '.join([
+			os.system(' && '.join([
 				'make nuke sure',
 				'make set species anaconda',
 				'make set anaconda_location=%s'%anaconda_location,

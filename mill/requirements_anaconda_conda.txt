@@ -8,6 +8,7 @@ PyYAML
 h5py
 Pillow
 matplotlib
+scikit-learn
 # factory requirements
 Django
 beautifulsoup4
