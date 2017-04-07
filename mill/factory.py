@@ -299,9 +299,11 @@ def connect_single(connection_name,**specs):
 	new_calcs_repo = not (os.path.isdir(abspath(specs['repo'])) and (
 		os.path.isdir(abspath(specs['repo'])+'/.git') or os.path.isfile(abspath(specs['repo'])+'/HEAD')))
 	#---see if the repo is a URL. code 200 means it exists
-	from urllib2 import urlopen
-	code = urlopen(specs['repo']).code
-	if new_calcs_repo and code!=200: raise Exception('dev')
+	try:
+		from urllib2 import urlopen
+		url_return_code = urlopen(specs['repo']).code
+	except: url_return_code = 0 
+	if new_calcs_repo and url_return_code!=200: pass
 	else: bash('make clone_calcs source="%s"'%specs['repo'],cwd=specs['calc'])
 
 	#---configure omnicalc 

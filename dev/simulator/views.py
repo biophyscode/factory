@@ -78,8 +78,8 @@ def prepare_simulation(sim):
 	#---we copy AMX_CONFIG to the config.py location so newly-cloned automacs can find it
 	if settings.AMX_CONFIG:
 		shutil.copyfile(settings.AMX_CONFIG,os.path.join(settings.DROPSPOT,rootdir,'config.py'))
-	subprocess.check_call('source %s/env/bin/activate && make docs'%settings.ROOTSPOT,
-		shell=True,cwd=os.path.join(settings.DROPSPOT,sim.code),executable="/bin/bash")
+	#subprocess.check_call('source %s/env/bin/activate && make docs'%settings.ROOTSPOT,
+	#	shell=True,cwd=os.path.join(settings.DROPSPOT,sim.code),executable="/bin/bash")
 	bundle_info = is_bundle(sim.program)
 	if not bundle_info:
 		subprocess.check_call('make program %s'%sim.program,
@@ -418,7 +418,7 @@ def detail_simulation(request,id):
 			print '[SHERPA] running "%s"'%command
 			sherpa.apply_async(args=(command,),kwargs={'cwd':location},retry=False,queue=settings.PROJECT_NAME+'.queue_sim',routing_key=settings.PROJECT_NAME+'.queue_sim')
 		#---old-school background runner uses a simpler method
-		elif settings.BACKRUN == 'old':
+		elif settings.BACKRUN == 'oldschool':
 			if metarun:
 				errorlog = 'script-%s.log'%metarun
 				command = 'make metarun %s'%metarun
