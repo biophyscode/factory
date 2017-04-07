@@ -235,7 +235,7 @@ def nuke(sure=False):
 		for dn in ['env','logs','calc','data','pack','site']:
 			if os.path.isdir(dn): shutil.rmtree(dn)
 
-def renew(species=None,sure=False):
+def renew(species=None,sure=False,anaconda_location=None):
 	"""
 	These are test sets for the environment. Be careful -- it erases your current environment!
 	"""
@@ -246,10 +246,12 @@ def renew(species=None,sure=False):
 		if species=='virtualenv':
 			bash('make nuke sure && make set species virtualenv && make setup && make test')
 		elif species=='anaconda':
+			#---! hard-code for basic test case
+			if not anaconda_location: anaconda_location = '~/libs/Miniconda3-latest-Linux-x86_64.sh'
 			bash(' && '.join([
 				'make nuke sure',
 				'make set species anaconda',
-				'make set anaconda_location ~/libs/Anaconda3-4.2.0-Linux-x86_64.sh',
+				'make set anaconda_location=%s'%anaconda_location,
 				'make setup',
 				'make test']))
 		else: raise Exception('no testset for species %s'%species)
