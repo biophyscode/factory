@@ -1,0 +1,94 @@
+{% extends "simulator/base.html" %}
+{% load staticfiles %}
+{% block content %}
+
+<!--on the detail page the navigate has own container-->
+<div id="container">
+<div class="brick">
+{% include "simulator/navigate.html" %}
+</div>
+</div>
+
+<div id="container">
+
+<div class="brick brick-wide2">
+<h1>simulation: {{ sim.name }}</h1>
+{% if job_status %}job status: <strong>{{ job_status }}</strong>{% endif %}
+</div>
+
+{% if logging %}
+<div class="brick brick-wide2">
+{% include "simulator/simulation_status.html" %}
+</div>
+{% endif %}
+
+<div class="brick brick-wide2">
+<h2>config</h2>
+<code>
+<ol>
+{% for key,val in config.items %}
+<li>{{ key }}: {{ val }}</li>
+{% endfor %}
+</ol>
+</code>
+</div>
+
+{% if kickstarts %}
+<div class="brick brick-wide2">
+<h2>kickstarts</h2>
+select a kickstarter below to load automacs with experiments
+<ol>
+{% for kick in kickstarts %}
+<li>kickstart: <a href="/simulator/sim{{ sim.id }}/kick{{ kick.id }}">{{ kick.name }}</a></li>
+{% endfor %}
+</ol>
+</div>
+{% endif %}
+
+{% if expts %}
+<div class="brick brick-wide2">
+<h2>experiments</h2>
+select an experiment
+{% for name_group,expt_group in expts.items %}
+	<h3>{{ name_group }}</h3>
+	<ol>
+	{% for item in expt_group %}
+	<li><a href="/simulator/sim{{ sim.id }}/prep/{{ item.0 }} ">
+		{{ item.0 }}</a> from <font style="color:gray">{{ item.1 }}</font></li>
+	{% endfor %}
+	</ol>
+{% endfor %}
+</div>
+{% endif %}
+
+{% if settings %}
+<div class="brick brick-wide2">
+<h2>settings</h2>
+{{ settings }}
+</div>
+{% endif %}
+
+{% if fieldsets %}
+<div class="brick brick-wide2">
+<form action="{{ ROOT_URL }}/simulator/sim{{ sim.id }}" method="post" enctype="multipart/form-data">
+{% csrf_token %}
+{% for set in fieldsets %}
+<table>
+<thead><tr><th style="text-align:left;"></th><th style="text-align:left;"></th></tr></thead>
+<tbody>
+<tr><legend style="text-align:left"><h3>{{ set.legend }}</h3></legend></tr>
+{% if set.details %}{{set.details}}<br>{% endif %}
+{% for field in set %}
+<tr><td style="text-align:right;">{{ field.label }}</td><td>{{ field }}</td></tr>
+{% endfor %}
+</tbody>
+</table>
+{% endfor %}
+<input class="button" type="submit" value="start" style="width:100"/><p>
+</form>
+</div>
+{% endif %}
+
+</div>
+
+{% endblock %}

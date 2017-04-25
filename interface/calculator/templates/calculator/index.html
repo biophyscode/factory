@@ -1,0 +1,43 @@
+{% extends "calculator/base.html" %}
+{% load staticfiles %}
+{% block content %}
+
+<div id="container_nav">
+
+<!--nav has a separate container on the calculation page for clarity-->
+<div class="brick">
+{% include "calculator/navigate.html" %}
+</div>
+
+</div>
+
+<div id="container">
+
+{% if plots_tree %}
+<div class="brick">
+{% include "calculator/list_plots.html" %}
+</div>
+{% endif %}
+
+{% if calcs_tree %}
+<div class="brick">
+{% include "calculator/list_calcs.html" %}
+</div>
+{% endif %}
+
+{% if slices_tree %}
+<div class="brick">
+{% include "calculator/list_meta.html" %}
+</div>
+{% endif %}
+
+{% if posts_tree %}
+<div class="brick brick-wide2">
+{% include "calculator/list_postdat.html" %}
+</div>
+{% endif %}
+
+</div>
+
+{% endblock %}
+

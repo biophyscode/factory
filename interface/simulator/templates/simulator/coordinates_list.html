@@ -1,0 +1,11 @@
+<h2>coordinates</h2>
+a starting structure for a simulation<br>
+{% if coords %}
+<ol>
+{% for coord in coords %}
+<li>{{ coord.name }} (originally {{ coord.source_file_name }})</li>
+{% endfor %}
+</ol>
+{% else %}
+<p>nothing here yet</p>
+{% endif %}

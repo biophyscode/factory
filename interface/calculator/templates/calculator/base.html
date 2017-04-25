@@ -1,0 +1,38 @@
+{% load staticfiles %}
+
+<head>
+	<title>factory</title>
+	<meta content="text/html; charset=utf-8" http-equiv="content-type">
+	<meta name="description" content=""/>
+	<meta name="keywords" content=""/>
+	<link rel="icon" href="favicon.ico" type="image/x-icon" />
+	<!---! add setting to turn off tiling here-->
+	<script type="text/javascript" src="{% static "jquery-3.2.1.min.js" %}"></script>
+	<script type="text/javascript" src="{% static "masonry.pkgd.min.js" %}"></script>
+	<script type="text/javascript" src="{% static "bootstrap-treeview.min.js" %}"></script>
+	<!--a subset of bootstrap.css for making the tree-->
+	<link rel="stylesheet" type="text/css" href="{% static "tree.css" %}">
+	<link rel="stylesheet" type="text/css" href="{% static "bootstrap-treeview.min.css" %}">
+	<link rel="stylesheet" type="text/css" href="{% static "style.css" %}">
+	<link rel="stylesheet" type="text/css" href="{% static "pygments.css" %}">
+</head>
+<body>
+
+{% block content %}
+{% endblock %}
+
+<script>
+var container = document.querySelector('#container');
+var masonry = new Masonry(container, {
+columnWidth: 50,
+itemSelector: '.brick'
+});
+/*nav has a separate container on the calculation page for clarity*/
+var container_nav = document.querySelector('#container_nav');
+var masonry = new Masonry(container_nav, {
+columnWidth: 50,
+itemSelector: '.brick'
+});
+</script>
+
+</body>

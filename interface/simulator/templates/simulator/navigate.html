@@ -1,0 +1,26 @@
+{% load staticfiles %}
+
+<!---hard-code the width in case user turns off the tiling-->
+<table style="vertical-align:middle;text-align:center;max-width:400px" width="100%">
+<tr><td align="center">
+<p style="color:grey;">
+<img height="60" width="60" style="color:grey;border: 3px solid white;border-radius:5px"
+src="{% static "factory.png" %}" border="0">
+<br><strong>factory</strong></p></td>
+<td align="center">
+<a href="{{ SITE_URL }}/simulator" style="color:#000000;">
+<img height="60" width="60" style="border: 3px solid grey;border-radius:5px"
+src="{% static "automacs.png" %}" border="0"></a>
+<a href="{{ SITE_URL }}/simulator" style="color:#000000;text-decoration:none;">
+<br><strong>simulator</strong></a></td>
+<td align="center">
+<a href="{{ SITE_URL }}/calculator" style="color:#000000;">
+<img height="60" width="60" style="border: 3px solid white;border-radius:5px"
+src="{% static "omnicalc.png" %}" border="0"></a>
+<a href="{{ SITE_URL }}/calculator" style="color:#000000;text-decoration:none;">
+<br><strong>calculator</strong></a></td></tr></table>
+
+<ul class="widelist">
+<li><a href="../admin" target="_blank">admin</a><br></li>
+<li><a href="http://biophyscode.github.io/" target="_blank">BioPhysCode</a><br></li>
+</ul>

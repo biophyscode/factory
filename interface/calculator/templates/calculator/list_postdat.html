@@ -1,0 +1,18 @@
+{% load staticfiles %}
+
+{% if posts_tree %}
+
+<h2>postdat</h2>
+
+<div id="posts_tree"></div>
+
+<script>
+var meta_toc_json = '{{ posts_tree|safe }}';
+$('#posts_tree').treeview({
+  data: JSON.parse(meta_toc_json),
+  levels: 1,
+  backColor: '#e6e6e6'
+});
+</script>
+
+{% endif %}

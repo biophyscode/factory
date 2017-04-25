@@ -1,0 +1,57 @@
+
+* {
+	font-size: 100%;
+	font-family: monospace;
+}
+
+.brick {
+	width: 400px;
+	border-style: solid;
+	border-width: 3px;
+	border-radius: 5px;
+	padding: 10px;
+	margin: 10px;
+	border-color:gray;
+}
+
+.brick-wide2 { width: 850px; }
+
+/* formatting needs tuned */
+ul.widelist li{
+	width: auto;
+	float: left;
+	margin: 0 2em;
+	list-style-type: square;
+}
+
+.button { 
+	height: 40px;
+	border: solid black 2px;
+	border-radius: 5px;
+}
+
+input { 
+	border: solid black 2px;
+	border-radius: 5px;
+	/* bootstrap.css squishes everything */
+	margin: 5px;
+}
+
+textarea { 
+	border: solid black 2px;
+	border-radius: 5px;
+	resize: none;
+}
+
+a {
+	/* ! replace red color below with something in the settings file */
+	color: #ff0080;
+	font-weight: 800;
+	text-decoration: none; 
+}
+
+/* bootstrap treeview links should be underlined */
+.treeview a {
+	text-decoration: underline;
+}
+

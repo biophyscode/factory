@@ -1,0 +1,17 @@
+{% load staticfiles %}
+
+{% if slices_tree %}
+<h2>slices</h2>
+
+<div id="slices_tree"></div>
+
+<script>
+var meta_toc_json = '{{ slices_tree|safe }}';
+$('#slices_tree').treeview({
+  data: JSON.parse(meta_toc_json),
+  levels: 1,
+  backColor: '#e6e6e6'
+});
+</script>
+
+{% endif %}
