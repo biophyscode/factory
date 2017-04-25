@@ -279,6 +279,8 @@ def connect_single(connection_name,**specs):
 		bash('git init',cwd=specs['repo'])
 		#---after making a blank repo we put a placeholder in the config
 		bash('make set calculations_repo="no_upstream"',cwd=specs['calc'])
+		#---also generate a blank metadata so that the interface works
+		bash('make blank_meta',cwd=specs['repo'])
 		msg = ('When connecting to project %s, the "repo" flag in your connection file points to nowhere. '
 			'We made a blank git repository at %s. You should develop your calculations there, push that '
 			'repo somewhere safe, and distribute it to all your friends, who can use the "repo" flag to '
@@ -357,7 +359,7 @@ def read_connection(*args):
 			contents = yaml.load(fp.read())
 			for key,val in contents.items():
 				if key in toc: 
-					raise Exception('found key %s in the toc already. redundant copy in %s'%(key,arg))
+					raise Exception('found key %s in the toc already. redundant copy in %s'%arg)
 				toc.update(**{key:val})
 	return toc
 

@@ -13,6 +13,12 @@
 
 <div id="container">
 
+{% if missings %}
+<div class="brick">
+Note that the metadata are lacking: {{ missings }}.
+</div>
+{% endif %}
+
 {% if plots_tree %}
 <div class="brick">
 {% include "calculator/list_plots.html" %}
