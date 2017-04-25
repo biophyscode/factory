@@ -1,4 +1,5 @@
 # strays not available via conda
-django-celery
+django-extensions
+"ipython[notebook]"
 brewer2mpl
 mayavi
