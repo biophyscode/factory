@@ -315,6 +315,7 @@ def template(template=None,name=None):
 	"""
 	List templates and possibly create one for the user.
 	"""
+	if not os.path.isdir('connections'): os.mkdir('connections')
 	template_source = 'connection_templates.py'
 	if sys.version_info<(3,0):
 		templates = {}
