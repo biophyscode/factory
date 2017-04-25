@@ -148,7 +148,10 @@ def makeface(*arglist):
 		#---note that it is crucial that the following group contains all incoming 
 		if re.match(regex_kwargs,arg):
 			parname,parval = re.findall(regex_kwargs,arg)[0]
-			kwargs[parname] = parval
+			#---eval in case you pass "False"
+			#---! note that this change makes the makeface.py in mill the latest version ca 2017.4.11
+			try: kwargs[parname] = eval(parval)
+			except: kwargs[parname] = parval
 		else:
 			if sys.version_info<(3,3): 
 				#---the following will be removed by python 3.6

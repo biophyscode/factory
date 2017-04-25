@@ -28,12 +28,13 @@ print('[BACKRUN] running "%s"'%cmd_full)
 job = subprocess.Popen(cmd_full,shell=True,cwd=specs['cwd'],preexec_fn=os.setsid,executable='/bin/bash')
 ask = subprocess.Popen('ps xao pid,ppid,pgid,sid,comm',shell=True,
 	stdout=subprocess.PIPE,stderr=subprocess.PIPE,executable='/bin/bash')
+print(job.pid)
 stdout,stderr = ask.communicate()
 #---get the pgid for this job pid
-ids = [int(j) for j in re.search('^(%d)\s+(\d+)\s+(\d+)\s+(\d+).*?\n'%
-	job.pid,stdout.decode(),flags=re.M).groups()]
+#---note that sometimes OSX only gives the first three items in the ps request
+ids = [int(j) for j in re.search('^(%d)\s+(\d+)\s+(\d+).*?\n'%job.pid,stdout.decode(),flags=re.M).groups()]
 pgid = ids[2]
-print('[NOTE] pgid=%d'%pgid)
+print('[NOTE] pid=%d pgid=%d'%(pid,pgid))
 term_command = 'pkill -TERM -g %d'%pgid
 kill_switch = os.path.join(specs['cwd'],specs['stopper'])
 with open(kill_switch,'w') as fp: fp.write(term_command+'\n')

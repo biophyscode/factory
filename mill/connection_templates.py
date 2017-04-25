@@ -55,3 +55,19 @@ project:
           structure: '(system|system-input|structure)\.(gro|pdb)'
 
 """
+
+template_demo = """
+
+demo:
+  enable: true 
+  development: true
+  site: site/PROJECT_NAME  
+  calc: calc/PROJECT_NAME
+  repo: calc/PROJECT_NAME/calcs
+  database: data/PROJECT_NAME/db.factory.sqlite3
+  post_data_spot: data/PROJECT_NAME/post
+  post_plot_spot: data/PROJECT_NAME/plot
+  simulation_spot: data/PROJECT_NAME/sims
+  # set a custom gromacs_config (~/.automacs.py) via: `gromacs_config: gromacs_config.py`
+
+"""

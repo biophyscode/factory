@@ -3,72 +3,23 @@
 """
 """
 
-import os,sys,glob,re,shutil,subprocess,textwrap
+import os,sys,glob,re,shutil,subprocess,textwrap,datetime
 from config import bash,read_config
 from makeface import abspath
 from datapack import asciitree
+from cluster import backrun
 
 __all__ = ['connect','template','connect','run','shutdown']
 
 from setup import FactoryEnv
 
+str_types = [str,unicode] if sys.version_info<(3,0) else [str]
+
+log_site = 'logs/site'
+log_cluster = 'logs/cluster'
+log_notebook = 'logs/notebook'
+
 ###---CONNECT PROCEDURE PORTED FROM original FACTORY
-
-settings_additions = """
-#---automatically added from kickstart
-INSTALLED_APPS = tuple(list(INSTALLED_APPS)+['simulator','calculator'])
-"""
-
-get_omni_dataspots = """if os.path.isfile(CALCSPOT+'/paths.py'):
-    omni_paths = {};execfile(CALCSPOT+'/paths.py',omni_paths)
-    DATASPOTS = omni_paths['paths']['data_spots']
-    del omni_paths
-"""
-
-urls_additions = """
-#---automatically added
-from django.conf.urls import include, url
-from django.views.generic.base import RedirectView
-urlpatterns += [
-	url(r'^simulator/',include('simulator.urls',namespace='simulator')),
-	url(r'^calculator/',include('calculator.urls',namespace='calculator')),
-	url(r'^$',RedirectView.as_view(url='calculator/',permanent=False),name='index'),
-	]
-"""
-
-#---permission settings for apache
-media_segment = """
-    Alias %s "%s"
-    <Directory %s>
-        Require all granted
-    </Directory> 
-"""
-
-#---! note previously used "Options Indexes FollowSymLinks" for write directories
-vhost_config = """
-#---to serve FACTORY:
-#---install apache2 and WSGI
-#---copy this file to /etc/apache2/vhosts.d/
-#---add "WSGIPythonPath /home/localshare/analysis/mplxr/env" to httpd.conf and substitue paths below
-#---restart apache
-<VirtualHost *:%d>
-    ServerName %s
-    ServerAlias factory
-    DocumentRoot %s
-%s
-    WSGIScriptAlias / %s
-    WSGIDaemonProcess factory python-path=%s:%s:%s
-    WSGIProcessGroup factory
-    <Directory %s>
-    	Order allow,deny
-    	Allow from all
-    	Require all granted
-    </Directory>
-</VirtualHost>
-"""
-
-#---the development path must be within the factory
-absolute_environment_path = abspath('env')
 
 def find_and_replace(fn,*args):
 	"""
@@ -79,12 +30,12 @@ def find_and_replace(fn,*args):
 	for f,t in args: text = re.sub(f,t,text,flags=re.M)
 	with open(fn,'w') as fp: fp.write(text)
 
-def package_django_module(projname):
+def package_django_module(source,projname):
 	"""
 	Packages and installs a django module.
 	Note that this is necessary for the initial connection, even if you use the development code.
 	"""
-	dev_dn = os.path.join('dev',projname)
+	dev_dn = os.path.join(source,projname)
 	pack_dn = os.path.join('pack',projname)
 	if not os.path.isdir(dev_dn): raise Exception('cannot find %s'%dev_dn)
 	if os.path.isdir(pack_dn): raise Exception('%s already exists'%pack_dn)
@@ -105,82 +56,107 @@ def package_django_module(projname):
 	#---install the package
 	bash('pip install -U pack/%s/dist/%s-0.1.tar.gz'%(projname,projname),log='logs/log-pip-%s'%projname)
 
-def prepare_vhosts(rootdir,connection_name,port=None,dev=True):
+#---! note no calculator below
+#---do not even think about changing this without MIRRORING the change in the development version
+project_settings_addendum = """
+#---django settings addendum
+INSTALLED_APPS = tuple(list(INSTALLED_APPS)+['django_extensions','simulator','calculator'])
+#---common static directory
+STATICFILES_DIRS = [os.path.join(BASE_DIR,'static')]
+TEMPLATES[0]['OPTIONS']['libraries'] = {'code_syntax':'calculator.templatetags.code_syntax'}
+TEMPLATES[0]['OPTIONS']['context_processors'].append('calculator.context_processors.global_settings')
+#---all customizations
+from custom_settings import *
+"""
 
-	"""
-	Prepare virtualhost configuration for users to serve over apache2.
-	"""
-
-	site_packages = 'env/lib/python2.7/site-packages'
-	#---we append the root directory to these media locations
-	aliases = {
-		'/static/calculator/':os.path.join(rootdir,'dev' if dev else site_packages,
-			'calculator/static/calculator',''),
-		'/static/simulator/':os.path.join(rootdir,'dev' if dev else site_packages,
-			'simulator/static/simulator',''),}
-	#---generic server settings
-	serveset = {'port':88,'domain':'127.0.0.1',
-		'document_root':os.path.join(rootdir,'site',connection_name,''),}
-	alias_conf = ''
-	for key,val in aliases.items(): 
-		alias_conf += media_segment%(key,val,val)
-	conf = vhost_config%(
-		serveset['port'] if not port else port,
-		serveset['domain'],
-		serveset['document_root'],
-		alias_conf,
-		os.path.join(rootdir,'site',connection_name,connection_name,'wsgi.py'),
-		os.path.join(rootdir,'site',connection_name,''),
-		#---add dev early
-		os.path.join(rootdir,'dev',''), 
-		os.path.join(rootdir,site_packages),
-		rootdir)
-	return conf
+#---project-level URLs really ties the room together
+project_urls = """
+from django.conf.urls import url,include
+from django.contrib import admin
+from django.views.generic.base import RedirectView
+urlpatterns = [
+	url(r'^$',RedirectView.as_view(url='simulator/',permanent=False),name='index'),
+	url(r'^simulator/',include('simulator.urls',namespace='simulator')),
+	url(r'^calculator/',include('calculator.urls',namespace='calculator')),
+	url(r'^admin/', admin.site.urls),]
+"""
 
 def connect_single(connection_name,**specs):
-
 	"""
-	The big kahuna.
+	The big kahuna. Revamped recently.
 	"""
-
 	config = read_config()
-
-	#---! for some reason py35 does not get sourced correctly but py27 does ??? see django-admin executable
-	backrun = 'oldschool'
-
 	#---skip a connection if enabled is false
 	if not specs.get('enable',True): return
-
 	mkdir_or_report('data')
 	mkdir_or_report('site')
-
 	#---the site is equivalent to a django project
 	#---the site draws on either prepackaged apps in the pack folder or the in-development versions in dev
 	#---since the site has no additional data except taht specified in connect.yaml, we can always remake it
 	if os.path.isdir('site/'+connection_name):
 		print("[STATUS] removing the site for \"%s\" to remake it"%connection_name)
 		shutil.rmtree('site/'+connection_name)
-
-	#---PREPROCESS THE CONNECTION SETTINGS
-
 	#---regex PROJECT_NAME to the connection names in the paths sub-dictionary	
-	#---note that "PROJECT_NAME" is therefore protected and always refers to the top-level key in connect.yaml
+	#---note that "PROJECT_NAME" is therefore protected and always refers to the 
+	#---...top-level key in connect.yaml
 	#---! note that you cannot use PROJECT_NAME in spots currently
 	for key,val in specs.items():
 		if type(val)==str: specs[key] = re.sub('PROJECT_NAME',connection_name,val)
 		elif type(val)==list:
 			for ii,i in enumerate(val): val[ii] = re.sub('PROJECT_NAME',connection_name,i)
+	#---paths defaults
+	specs['plot_spot'] = specs.get('plot_spot',os.path.join('data',connection_name,'plot')) 
+	specs['post_spot'] = specs.get('post_spot',os.path.join('data',connection_name,'post')) 
+	specs['simulations_spot'] = specs.get('simulations_spot',os.path.join('data',connection_name,'sims'))
+	specs['coords_spot'] = specs.get('coords_spot',os.path.join('data',connection_name,'coords'))
 
-	#---PREPARE DIRECTORIES
+	#---cluster namer is set in a separate file
+	cluster_namer = {}
+	with open('mill/cluster_spec.py') as fp: exec(fp.read(),cluster_namer) 
+	for key in [i for i in cluster_namer if i not in cluster_namer['keepsakes']]: del cluster_namer[key]
+
+	###---DJANGO SETTINGS
+
+	#---first define folders and (possibly) http git repos
+	settings_custom = {
+		'SIMSPOT':abspath(specs['simulations_spot']),
+		#---! hard-coded. get it from config.py??
+		'AUTOMACS':'http://github.com/bradleyrp/automacs',
+		'PLOT':abspath(specs['plot_spot']),
+		'POST':abspath(specs['post_spot']),
+		'COORDS':abspath(specs['coords_spot']),
+		#---omnicalc locations are fixed
+		'CALC':abspath(os.path.join('calc',connection_name)),
+		'FACTORY':os.getcwd(),
+		#---! get this from config.py
+		'CLUSTER':'cluster'}
+	#---all paths are absolute unless they have a colon in them, in which case it is ssh or http
+	#---we attach filesystem separators as well so that e.g. settings.SPOT can be added to relative paths
+	settings_custom = dict([(key,os.path.join(os.path.abspath(val),'') if ':' not in val else val)
+		for key,val in settings_custom.items()])
+	settings_custom['CLUSTER_NAMER'] = cluster_namer
+	#---if the user does not supply a gromacs_config.py the default happens
+	#---option to specify gromacs config file for automacs
+	if 'gromacs_config' in specs: 
+		gromacs_config_fn = specs['gromacs_config']
+		if not os.path.isfile(gromacs_config_fn):
+			raise Exception('cannot find gromacs_config file at %s'%gromacs_config_fn)
+		settings_custom['GROMACS_CONFIG'] = os.path.join(os.getcwd(),gromacs_config_fn)
+	else: settings_custom['GROMACS_CONFIG'] = False
+	#---additional custom settings which are not paths
+	settings_custom['NOTEBOOK_PORT'] = 8888
+	settings_custom['NAME'] = connection_name
+
+	###---END DJANGO SETTINGS
 
 	#---make local directories if they are absent or do nothing if the user points to existing data
 	root_data_dir = 'data/'+connection_name
 	#---always make data/PROJECT_NAME for the default simulation_spot therein
 	mkdir_or_report(root_data_dir)
-	for key in ['post_data_spot','post_plot_spot','simulation_spot']: 
+	for key in ['post_spot','plot_spot','simulations_spot']: 
 		mkdir_or_report(abspath(specs[key]))
 	#---we always include a "sources" folder in the new simulation spot for storing input files
-	mkdir_or_report(abspath(specs['simulation_spot']+'/sources/'))
+	mkdir_or_report(abspath(specs.get('coords_spot',os.path.join('data',connection_name,'coords'))))
 
 	#---check if database exists and if so, don't make superuser
 	make_superuser = not os.path.isfile(specs['database'])
@@ -195,60 +171,51 @@ def connect_single(connection_name,**specs):
 	if not omnicalc_upstream: 
 		raise Exception('need omnicalc in config.py for factory or the connection. '+msg)
 
-	#---interpret paths from connect.yaml for PROJECT_NAME/PROJECT_NAME/settings.py in the django project
-	#---these paths are all relative to the rootspot, the top directory for the factory codes
-	settings_paths = {
-		'rootspot':os.path.join(os.getcwd(),''),
-		'automacs_upstream':automacs_upstream,
-		'project_name':connection_name,
-		'plotspot':abspath(specs['post_plot_spot']),
-		'postspot':abspath(specs['post_data_spot']),
-		'dropspot':abspath(specs['simulation_spot']),
-		'calcspot':specs['calc']}
-
-	#---prepare additions to the settings.py and urls.py
-	settings_append_fn = 'logs/setup-%s-settings-append.py'%connection_name
-	urls_append_fn = 'logs/setup-%s-urls-append.py'%connection_name
-	with open(settings_append_fn,'w') as fp:
-		if 'development' in specs and specs['development']: 
-			devpath = "import sys;sys.path.insert(0,os.getcwd()+'/dev/')" 
-		else: devpath = ""
-		for key,val in settings_paths.items():
-			fp.write('%s = "%s"\n'%(key.upper(),val))
-		fp.write(devpath+settings_additions)
-		fp.write('\n#---run in the background the old-fashioned way\nBACKRUN = "%s"\n'%backrun)
-		if 'omni_gromacs_config' in specs and specs['omni_gromacs_config']:
-			fp.write('#---automacs/gromacs config file\nAMX_CONFIG = \"%s\"\n'%os.path.abspath(
-				os.path.expanduser(specs['omni_gromacs_config'])))
-		else: fp.write('#---automacs/gromacs config file\nAMX_CONFIG = None\n')
-		for key in ['PLOTSPOT','POSTSPOT','ROOTSPOT']: 
-			fp.write('%s = os.path.expanduser(os.path.abspath(%s))\n'%(key,key))
-		#---must specify a database location
-		if 'database' in specs: 
-			fp.write("DATABASES['default']['NAME'] = \"%s\"\n"%os.path.abspath(specs['database']))
-		if 'lockdown' in specs: fp.write(lockdown_extra%specs['lockdown'])
-		fp.write(get_omni_dataspots)
-		if specs.get('spots',None):
-			#---append a lookup table for spots locations here
-			path_lookups = dict([(key,re.sub('PROJECT_NAME',connection_name,
-				abspath(os.path.join(val['route_to_data'],val['spot_directory']))))
-				for key,val in specs['spots'].items()])
-		else: path_lookups = {}
-		fp.write('PATHFINDER = %s\n'%str(path_lookups))
-		#---if port is in the specs we serve the development server on that port and celery on the next
-		if 'port' in specs and backrun in ['celery','celery_backrun','old']: 
-			fp.write('DEVPORT = %d\nCELERYPORT = %d\n'%(specs['port'],specs['port']+1))
-		else: fp.write('DEVPORT = %d\nCELERYPORT = %d\n'%(8000,8001))
-	with open(urls_append_fn,'w') as fp: fp.write(urls_additions)
-
-	#---previous version of factory prepended a source command in front of every call
+	#---note that previous version of factory prepended a source command in front of every call
+	#---...however the factory handles this for us now
 	#---django is accessed via packages imported in settings.py which is why we have to package them
+	#---...this saves us from making N copies of the development code
+
+	#---! YOU NEED TO MAKE THE DEVELOPMENT POSSIBLE SOMEHWERE HEREABOUTS
+
+	#---! hard-coding the location of the sources
+	django_source = 'interface'
+	#---! switching to new development codes...calculator not available yet
 	for app in ['simulator','calculator']: 
-		if not os.path.isdir('pack/%s'%app): package_django_module(app)
+		if not os.path.isdir('pack/%s'%app): 
+			package_django_module(source=django_source,projname=app)
+	
+	#---one new django project per connection
 	bash('django-admin startproject %s'%connection_name,
 		log='logs/log-%s-startproject'%connection_name,cwd='site/')
-	bash('cat %s >> site/%s/%s/settings.py'%(settings_append_fn,connection_name,connection_name))
-	bash('cat %s >> site/%s/%s/urls.py'%(urls_append_fn,connection_name,connection_name))
+	#---link the static files to the development codes (could use copytree)
+	os.symlink(os.path.join(os.getcwd(),django_source,'static'),
+		os.path.join('site',connection_name,'static'))
+
+	#---all settings are handled by appending to the django-generated default
+	#---we also add changes to django-default paths
+	with open(os.path.join('site',connection_name,connection_name,'settings.py'),'a') as fp:
+		fp.write(project_settings_addendum)
+		if specs.get('development',False):
+			fp.write('#---use the development copy of the code\n'+
+				'import sys;sys.path.insert(0,os.path.join(os.getcwd(),"%s"))'%django_source) 
+
+	#---write custom settings
+	#---some settings are literals
+	custom_literals = ['CLUSTER_NAMER']
+	with open(os.path.join('site',connection_name,connection_name,'custom_settings.py'),'w') as fp:
+		#---! proper way to write python constants?
+		fp.write('#---custom settings are auto-generated from mill.factory.connect_single\n')
+		for key,val in settings_custom.items():
+			#---! is there a pythonic way to write a dictionary to a script of immutables
+			if ((type(val) in str_types and re.match('^(False|True)$',val)) or key in custom_literals
+				or type(val)==bool):
+				out = '%s = %s\n'%(key,val)
+			else: out = '%s = "%s"\n'%(key,val)
+			fp.write(out)
+	#---write project-level URLs
+	with open(os.path.join('site',connection_name,connection_name,'urls.py'),'w') as fp:
+		fp.write(project_urls)
 
 	#---clone omnicalc if necessary
 	omnicalc_previous = os.path.isdir('calc/%s'%connection_name)
@@ -259,27 +226,12 @@ def connect_single(connection_name,**specs):
 		bash('make setup',cwd=specs['calc'])
 	else: print('[NOTE] found calc/%s'%connection_name)
 
-	if False:
-		if not os.path.isdir('data/%s/sims/docs'%connection_name):
-			bash('git clone %s data/%s/sims/docs'%(specs['automacs'],connection_name),
-				log='logs/log-%s-git-amx'%connection_name)
-		#bash('make docs',cwd='data/%s/sims/docs'%connection_name,
-		#	log='logs/log-%s-automacs-docs'%connection_name)
-		#---! no more config?
-		#bash('make config defaults',cwd='calc/%s'%connection_name,
-		#	log='logs/log-%s-omnicalc-config'%connection_name,env=True)
-		for dn in ['calc/%s/calcs'%connection_name,'calc/%s/calcs/scripts'%connection_name]: 
-			if not os.path.isdir(dn): os.mkdir(dn)
-		#bash('make docs',cwd='calc/%s'%connection_name,log='logs/log-%s-omnicalc-docs'%connection_name)
-		if backrun in ['celery','celery_backrun']:
-			shutil.copy('deploy/celery_source.py','site/%s/%s/celery.py'%(connection_name,connection_name))
-			#---BSD/OSX sed does not do in-place replacements
-			bash('perl -pi -e s,multiplexer,%s,g site/%s/%s/celery.py'%
-				(connection_name,connection_name,connection_name))	
-
-	#---! what does this migration do?
+	#---initial migration for all new projects to start the database
+	#---...!!!!!!!!!!!!!!
 	print('[NOTE] migrating ...')
-	bash('python site/%s/manage.py migrate'%connection_name,
+	bash('python site/%s/manage.py makemigrations'%connection_name,
+		log='logs/log-%s-migrate'%connection_name)
+	bash('python site/%s/manage.py migrate --run-syncdb'%connection_name,
 		log='logs/log-%s-migrate'%connection_name)
 	print('[NOTE] migrating ... done')
 	if make_superuser:
@@ -295,11 +247,15 @@ def connect_single(connection_name,**specs):
 
 	#---set up the calculations directory in omnicalc
 	#---check if the repo pointer in the connection is a valid path
-	#---! can this handle github paths? probably not. check and warn the user.
 	new_calcs_repo = not (os.path.isdir(abspath(specs['repo'])) and (
 		os.path.isdir(abspath(specs['repo'])+'/.git') or os.path.isfile(abspath(specs['repo'])+'/HEAD')))
+	downstream_git_fn = os.path.join('calc',connection_name,'calcs','.git')
+	#---if the repo key gives a web address and we already cloned it, then we do nothing and suggest a pull
+	if ':' in specs['repo'] and os.path.isdir(downstream_git_fn):
+		print('[NOTE] the calc repo (%s) appears to be remote and %s exists.'%(
+			specs['calc'],downstream_git_fn)+'you should pull the code manually to update it')
 	#---check that a calcs repo from the internet exists
-	if new_calcs_repo and re.match('^http',specs['repo']):
+	elif new_calcs_repo and re.match('^http',specs['repo']):
 		#---see if the repo is a URL. code 200 means it exists
 		if sys.version_info<(3,0): from urllib2 import urlopen
 		else: from urllib.request import urlopen
@@ -311,105 +267,47 @@ def connect_single(connection_name,**specs):
 		print('[WARNING] assuming that the calcs repository is on a remote machine: %s'%specs['repo'])
 		bash('make clone_calcs source="%s"'%specs['repo'],cwd=specs['calc'])
 	#---if the calcs repo exists locally, we just clone it
-	elif not new_calcs_repo: bash('make clone_calcs source="%s"'%specs['repo'],cwd=specs['calc'])
+	elif not new_calcs_repo and os.path.isdir(downstream_git_fn): 
+		print('[NOTE] git appears to exist at %s already and connection does not specify '%
+			os.path.join(abspath(specs['repo']),'.git')+
+			'an upstream calcs repo so we are continuing without action')
+	elif not new_calcs_repo and not os.path.isfile(downstream_git_fn): 
+		bash('make clone_calcs source="%s"'%specs['repo'],cwd=specs['calc'])
 	#---make a fresh calcs repo because the meta file points to nowhere
 	else:
 		os.mkdir(specs['repo'])
 		bash('git init',cwd=specs['repo'])
+		#---after making a blank repo we put a placeholder in the config
+		bash('make set calculations_repo="no_upstream"',cwd=specs['calc'])
 		msg = ('When connecting to project %s, the "repo" flag in your connection file points to nowhere. '
 			'We made a blank git repository at %s. You should develop your calculations there, push that '
 			'repo somewhere safe, and distribute it to all your friends, who can use the "repo" flag to '
 			'point to it when they start their factories.')
 		print('\n'.join(['[NOTE] %s'%i for i in textwrap.wrap(
-			msg%(connection_name,specs['repo']),width=80)]))
+			msg%(connection_name,specs['repo']),width=60)]))
+
+	#---pass a list of meta_filters through (can be list of strings which are paths or globs)
+	calc_meta_filters = specs.get('calc_meta_filters',None)
+	if calc_meta_filters:
+		for filt in calc_meta_filters:
+			#---note that meta_filter is turned into a list in config.py in omnicalc
+			bash('make set meta_filter="%s"'%filt,cwd=specs['calc'])
 
 	#---configure omnicalc 
 	#---note that make set commands can change the configuration without a problem
-	bash('make set post_data_spot=%s'%settings_paths['postspot'],cwd=specs['calc'])
-	bash('make set post_plot_spot=%s'%settings_paths['plotspot'],cwd=specs['calc'])
-	#---! is the above comprehensive?
+	bash('make set post_data_spot=%s'%settings_custom['POST'],cwd=specs['calc'])
+	bash('make set post_plot_spot=%s'%settings_custom['PLOT'],cwd=specs['calc'])
 	#---! needs to interpret simulation_spot, add spots functionality
-
-	if False:
-		#---if the repo points nowhere we prepare a calcs folder for omnicalc (repo is required)
-		new_calcs_repo = not (os.path.isdir(abspath(specs['repo'])) and (
-			os.path.isdir(abspath(specs['repo'])+'/.git') or os.path.isfile(abspath(specs['repo'])+'/HEAD')))
-		if new_calcs_repo:
-			print("[STATUS] repo path %s does not exist so we are making a new one"%specs['repo'])
-			mkdir_or_report(specs['calc']+'/calcs')
-			bash('git init',cwd=specs['calc']+'/calcs',log='logs/log-%s-new-calcs-repo'%connection_name)
-			#---! AUTO POPULATE WITH CALCULATIONS HERE
-		#---if the repo is a viable git repo then we clone it
-		else: 
-			if not specs['repo']==specs['calc']+'/calcs':
-				#---remove the "blank" calcs folders if they appear to be blank before cloning
-				#---! note that it would be far better to simply require any user preserve their code with a git
-				#if set([i for j in [fn 
-				#	for root,dn,fn in os.walk('calc/%s/calcs'%connection_name)] 
-				#	for i in j])==set(['.info','__init__.py']):
-				shutil.rmtree(specs['calc']+'/calcs')
-				try: bash('git clone '+specs['repo']+' '+specs['calc']+'/calcs',cwd='./',
-					log='logs/log-%s-clone-calcs-repo'%connection_name)
-				except:
-					print('[WARNING] tried to clone %s into %s but it exists'%(
-						specs['repo'],specs['calc']+'/calcs'))
-		#---create directories if they are missing
-		mkdir_or_report(specs['calc']+'/calcs/specs/')
-		mkdir_or_report(specs['calc']+'/calcs/scripts/')
-		mkdir_or_report(specs['calc']+'/calcs/codes/')
-		subprocess.check_call('touch __init__.py',cwd=specs['calc']+'/calcs/scripts',
-			shell=True,executable='/bin/bash')
-
-	#---! NO. PRELOADS ARE CLUMSY
-	if False:
-		#---if startup then we load some common calculations (continued below)
-		if specs['startup']: 
-			bash('rsync -ariv deploy/preloads/ %s/calcs/'%specs['calc'],
-				cwd='./',log='logs/log-%s-preloads'%connection_name)
-
-	#---! add these calculations to the database (possibly for FACTORY)
-	if 0: subprocess.check_call(
-		'source env/bin/activate && python ./deploy/register_calculation.py %s %s %s'%
-		(specs['site'],connection_name,specs['calc']),shell=True,executable='/bin/bash')
-
-	if False:
-		#---write the paths.yaml for the new omnicalc with the correct spots, paths, etc
-		default_paths = {}
-		default_paths['post_data_spot'] = settings_paths['postspot']
-		default_paths['post_plot_spot'] = settings_paths['plotspot']
-		default_paths['workspace_spot'] = abspath(specs['workspace_spot'])
-		default_paths['timekeeper'] = specs.get('timekeeper',False)
-		default_paths['spots'] = specs['spots']
-		#---in case spots refers to a local directory we use full paths
-		for spotname in specs['spots']:
-			specs['spots'][spotname]['route_to_data'] = re.sub(
-				'PROJECT_NAME',connection_name,os.path.abspath(specs['spots'][spotname]['route_to_data']))
-		#---final substitutions so PROJECT_NAME can be used anywhere
-		with open(os.path.join(specs['calc'],'paths.yaml'),'w') as fp: 
-			fp.write(re.sub('PROJECT_NAME',connection_name,yaml.dump(default_paths)))
-		
-		#---previous omnicalc users may have a specific gromacs.py that they wish to use
-		if 'omni_gromacs_config' in specs and specs['omni_gromacs_config']:
-			gromacs_fn = os.path.abspath(os.path.expanduser(specs['omni_gromacs_config']))
-			shutil.copyfile(gromacs_fn,specs['calc']+'/gromacs.py')
-
-		#---refresh in case you added another spot
-		print('[STATUS] running make in %s'%specs['calc'])
-		if omnicalc_previous:
-			subprocess.check_call('source env/bin/activate && make -s -C '+specs['calc']+' refresh',
-				shell=True,executable='/bin/bash')
-		#---assimilate old data if available
-		subprocess.check_call('source env/bin/activate && make -s -C '+specs['calc']+' export_to_factory %s %s'%
-			(connection_name,settings_paths['rootspot']+specs['site']),shell=True,executable='/bin/bash')
-		print("[STATUS] got omnicalc errors? try git pull to stay current")
-
-	#---prepare a vhost file
-	conf = prepare_vhosts(os.getcwd(),connection_name,port=None if 'port' not in specs else specs['port'])
-	with open('logs/vhost_%s.conf'%connection_name,'w') as fp: fp.write(conf)
-	print("[STATUS] connected %s!"%connection_name)
-	print("[STATUS] start with \"make run %s\""%connection_name)
-
+	#---! previously ran register_calculation.py here -- may be worth recapping in this version?
+	#---! prepare vhost file here when it's ready
 	#---??? IS THIS IT ???
+
+#---! later you need to add omnicalc functionality
+if False: get_omni_dataspots = """if os.path.isfile(CALCSPOT+'/paths.py'):
+    omni_paths = {};execfile(CALCSPOT+'/paths.py',omni_paths)
+    DATASPOTS = omni_paths['paths']['data_spots']
+    del omni_paths
+"""
 
 ###---UTILITY FUNCTIONS
 
@@ -469,7 +367,7 @@ def connect(name=None):
 	#---get all available connections
 	connects = glob.glob('connections/*.yaml')
 	if not connects: raise Exception('no connections available. try `make template` for some examples.')
-	#---read all connection files into one dictionary
+	#---read all connection files into one diction ary
 	toc = read_connection(*connects)
 	if name and name not in toc: raise Exception('cannot find projecte named "%s" in the connections'%name)
 	#---which connections we want to make
@@ -477,16 +375,97 @@ def connect(name=None):
 	#---loop over desired connections
 	for project in targets: connect_single(project,**toc[project])
 
+def check_port(port):
+	"""
+	"""
+	import socket
+	s = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+	try: s.bind(("127.0.0.1",port))
+	except socket.error as e: raise Exception('port %d is not free: %s'%(port,str(e)))
+	s.close()
+
+def start_site(name,lock='pid.site.lock',log=log_site):
+	"""
+	"""
+	#---start django
+	site_dn = os.path.join('site',name)
+	if not os.path.isdir(site_dn): 
+		raise Exception('missing site/%s. did you forget to connect it?'%name)
+	check_port(8000)
+	#---for some reason you have to KILL not TERM the runserver
+	#---! replace runserver with something more appropriate? a real server?
+	backrun(cmd='python %s runserver'%os.path.join(os.getcwd(),site_dn,'manage.py'),
+		log=log,stopper=lock,killsig='KILL',scripted=False)
+	return lock,log
+
+def start_cluster(lock='pid.cluster.lock',log=log_cluster):
+	"""
+	"""
+	#---if you want to run multiple clusters, use a more nuanced check for stale clusters
+	regex_stale = 'mill/cluster_start.py'
+	#---pre-check that there are no running clusters
+	ask = subprocess.Popen('ps xao comm,args',shell=True,
+		stdout=subprocess.PIPE,stderr=subprocess.PIPE,executable='/bin/bash')
+	stdout,stderr = ask.communicate()
+	if re.search(regex_stale,stdout):
+		raise Exception('there appears to be a stale cluster already running!')
+	#---start the cluster. argument is the location of the kill switch for clean shutdown
+	#---! eventually the cluster should move somewhere safe and the kill switches should be hidden
+	#---! ...make shutdown should manage the clean shutdown
+	backrun(cmd='python -u mill/cluster_start.py %s'%lock,
+		log=log,stopper=lock,killsig='INT',scripted=False)
+	return lock,log
+
+def daemon_ender(fn,cleanup=True):
+	"""
+	Read a lock file and end the job with a particular message
+	"""
+	try: bash('bash %s'%fn)
+	except Exception as e: 
+		print('[WARNING] failed to shutdown lock file %s with exception:\n%s'%(fn,e))
+	if cleanup: os.remove(fn)
+
+def stop_locked(what,lock,log,cleanup=True):
+	"""
+	Save the logs and terminate the server.
+	"""
+	if what not in ['site','cluster','notebook']: raise Exception('can only stop site or cluster')
+	#---terminate first in case there is a problem saving the log
+	daemon_ender(lock,cleanup=cleanup)
+	stamp = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
+	if not os.path.isdir('logs'): raise Exception('logs directory is missing')
+	shutil.move(log,'logs/arch.%s.%s.log'%(what,stamp))
+
+def start_notebook(name,lock='pid.notebook.lock',log=log_notebook):
+	"""
+	"""
+	check_port(8888)
+	if not os.path.isdir(os.path.join('site',name)):
+		raise Exception('cannot find site for %s'%name)
+	#---note that TERM safely closes the notbook server
+	backrun(cmd='python site/%s/manage.py shell_plus --notebook --no-browser'%name,
+		log=log,stopper=lock,killsig='TERM',scripted=False)
+	return lock,log
+
 def run(name):
 	"""
-	Run a project.
 	"""
-	#---! some kinds of checks?
-	bash('bash mill/run_project.sh %s'%name)
+	#---start the site first before starting the cluster
+	lock_site,log_site = start_site(name)
+	try: lock_cluster,log_cluster = start_cluster()
+	except Exception as e:
+		stop_locked('site',lock=lock_site,log=log_site)
+		raise Exception('failed to start the cluster so we shut down the site. exception: %s'%str(e)) 
+	start_notebook(name)
+	#except: print('[WARNING] notebook failed!')
 
-def shutdown(name):
+def shutdown():
 	"""
-	Shutdown a running server.
 	"""
-	#---! some kinds of checks? internalize this.
-	bash('bash mill/shutdown.sh %s'%name)	
+	try: stop_locked('notebook',lock='pid.notebook.lock',log=log_notebook)
+	except Exception as e: print('[WARNING] failed to stop notebook. exception: %s'%str(e))
+	try: stop_locked('site',lock='pid.site.lock',log=log_site)
+	except Exception as e: print('[WARNING] failed to stop site. exception: %s'%str(e))
+	#---the cluster cleans up after itself so we do not run the cleanup
+	try: stop_locked('cluster',lock='pid.cluster.lock',log=log_cluster,cleanup=False)
+	except Exception as e: print('[WARNING] failed to stop cluster. exception: %s'%str(e))

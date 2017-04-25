@@ -17,8 +17,12 @@ def read_config(source=None):
 	Read the configuration from a single dictionary literal in config.py (or the config_fn).
 	"""
 	source = config_fn if not source else source
-	if not os.path.isfile(abspath(source)): raise Exception('cannot find file "%s"'%source)
-	try: return eval(open(abspath(source)).read())
+	if not os.path.isfile(abspath(source)): 
+		if not os.path.isfile(os.path.join(os.getcwd(),source)):
+			raise Exception('cannot find file "%s"'%source)
+		else: source = os.path.join(os.getcwd(),source)
+	else: source = abspath(source)
+	try: return eval(open(source).read())
 	except: raise Exception('[ERROR] failed to read master config from "%s"'%source)
 
 def write_config(config):
@@ -50,7 +54,7 @@ def is_terminal_command(name):
 	check_which.communicate()
 	return check_which.returncode
 
-def bash(command,log=None,cwd=None,inpipe=None):
+def bash(command,log=None,cwd=None,inpipe=None,catch=False):
 	"""
 	Run a bash command
 	"""
@@ -58,6 +62,7 @@ def bash(command,log=None,cwd=None,inpipe=None):
 	if log == None: 
 		if inpipe: raise Exception('under development')
 		kwargs = dict(cwd=cwd,shell=True,executable='/bin/bash')
+		if catch: kwargs.update(stdout=subprocess.PIPE,stderr=subprocess.PIPE)
 		proc = subprocess.Popen(command,**kwargs)
 		stdout,stderr = proc.communicate()
 	else:
@@ -73,10 +78,12 @@ def bash(command,log=None,cwd=None,inpipe=None):
 		else: stdout,stderr = proc.communicate(input=inpipe)
 	if stderr: raise Exception('[ERROR] bash returned error state: %s'%stderr)
 	if proc.returncode: 
-		if log: raise Exception('[ERROR] bash error, see %s'%log)
+		if log: raise Exception('bash error, see %s'%log)
 		else: 
 			extra = '\n'.join([i for i in [stdout,stderr] if i])
-			raise Exception('[ERROR] bash error'+(': '+extra if extra else ''))
+			raise Exception('bash error with returncode %d. stdout: "%s"\nstderr: "%s"'%(proc.returncode,
+				stdout,stderr))
+	return {'stdout':stdout,'stderr':stderr}
 
 def set_config(*args,**kwargs):
 	"""
@@ -87,7 +94,7 @@ def set_config(*args,**kwargs):
 	This was adapted from the automacs.runner.acme version to be more generic.
 	"""
 	config_toc = {'species':'single','anaconda_location':'single','automacs':'single','omnicalc':'single',
-		'nprocs':'single'}
+		'nprocs':'single','activate_env':'single','setup_stamp':'single'}
 	if len(args)>=2: what,args = args[0],args[1:]
 	else: what = None
 	if what and what not in config_toc: raise Exception('the argument to `make set` must be in %s'%config_toc.keys())
@@ -151,3 +158,13 @@ def add_config(*args,**kwargs):
 	if not hashed: delveset(config,*args,value=value)
 	write_config(config)
 	return setting_change
+
+def unset(*args):
+	"""
+	Remove items from config.
+	"""
+	config = read_config()
+	for arg in args: 
+		if arg in config: del config[arg]
+		else: print('[WARNING] cannot unset %s because it is absent'%arg)
+	write_config(config)

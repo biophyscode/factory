@@ -6,7 +6,7 @@ Prepare or check that the environment is ready for the factory.
 
 __all__ = ['nuke','renew','setup','init']
 
-import os,sys,time,re,shutil,textwrap
+import os,sys,time,re,shutil,textwrap,glob
 from config import read_config,write_config,is_terminal_command,bash,abspath
 from makeface import fab
 from datapack import asciitree
@@ -40,7 +40,20 @@ class FactoryEnv:
 			'welcome':'welcome_message',
 			'source_cmd':'source env/bin/activate',
 			#---the flag for python2 must happen when the environment is created
-			'use_python2':True}}
+			'use_python2':True},
+		#---need python2 vs 3
+		'anaconda_osx':{
+			'reqs_conda':['mill/requirements_anaconda_conda_osx.txt'],
+			'reqs_pip':['mill/requirements_anaconda_pip_osx.txt'],
+			'setup_kickstart':'setup_anaconda',
+			'setup_refresh':'setup_anaconda_refresh',
+			'loader_commands':{
+				'env_activate':'env/bin/activate',
+				'env_deactivate':'deactivate'},
+			'welcome':'welcome_message',
+			'source_cmd':'source env/bin/activate',
+			#---the flag for python2 must happen when the environment is created
+			'use_python2':True},}
 	#---! need a place to store env path !!! (see above; it's in the activate_script)	
 	#---sandbox mimics the virtualenv and uses the same setup, with an extra flag not encoded here
 	meta['virtualenv_sandbox'] = dict(meta['virtualenv'])
@@ -203,7 +216,7 @@ class FactoryEnv:
 			self.source_cmd = 'source env/envs/py2/bin/activate py2'
 		#---! hard-coding the channel for MDAnalysis here.
 		#---! ...this is required because MDANalysis gives PyFPE_jbuf error if numpy is 1.12
-		bash(self.source_cmd+' && conda config --add channels MDAnalysis')
+		#---! removed to avoid warning: bash(self.source_cmd+' && conda config --add channels MDAnalysis')
 		for fn in self.reqs_conda:
 			print('[STATUS] installing packages via conda from %s'%fn)
 			#---we tell conda to ignore local user site-packages because version errors
@@ -220,7 +233,7 @@ def setup(refresh=False):
 	"""
 	env = FactoryEnv(refresh=True)
 		
-def nuke(sure=False):
+def nuke(sure=False,env=True):
 	"""
 	Start from scratch. Erases the environment and  resets the config. You must set the species after this.
 	"""
@@ -233,31 +246,48 @@ def nuke(sure=False):
 		#---we do not touch the connections, obviously, since you might nuke and reconnect
 		#---deleting sensitive stuff here
 		for fn in [i for i in ['data'] if os.path.isdir(i)]: shutil.rmtree(fn)
-		for dn in ['env','logs','calc','data','pack','site']:
+		for dn in (['env'] if env else [])+['logs','calc','data','pack','site']:
 			if os.path.isdir(dn): shutil.rmtree(dn)
+		#---nuking the interface development codes requires you to remove migrations. if you do not do this
+		#---...then any development modifications to the model requires more attention from the user,
+		#---...specifically to fill in columns on preexisting rows. this is obviously a great feature
+		#---...for a mature database, but nuking typically removes the db hence the name
+		for fn in glob.glob(os.path.join('interface','simulator','migrations','*')): os.remove(fn)
 
-def renew(species=None,sure=False,anaconda_location=None):
+def renew():
 	"""
-	These are test sets for the environment. Be careful -- it erases your current environment!
+	List useful strings of commands for testing the factory environments.
 	"""
-	if sure or all(re.match('^(y|Y)',(input if sys.version_info>(3,0) else raw_input)
-		('[QUESTION] %s (y/N)? '%msg))!=None for msg in 
-		['`renew` is a test set that deletes everything. okay?','confirm']):
-		if not species: raise Exception('testset needs a species')
-		if species=='virtualenv':
-			bash('make nuke sure && make set species virtualenv && make setup && make test')
-		elif species=='anaconda':
-			#---! hard-code for basic test case
-			if not anaconda_location: anaconda_location = '~/libs/Miniconda3-latest-Linux-x86_64.sh'
-			os.system(' && '.join([
-				'make nuke sure',
-				'make set species anaconda',
-				'make set anaconda_location=%s'%anaconda_location,
-				'make setup',
-				'make test']))
-		else: raise Exception('no testset for species %s'%species)
-		bash('make set omnicalc="http://github.com/bradleyrp/omnicalc"')
-		bash('make set automacs="http://github.com/bradleyrp/automacs"')
+	print('\n'+fab('ENVIRONMENT HINTS','cyan_black'))
+	cmds = {
+		'linux + anaconda':[
+			'make nuke sure',
+			'make set species anaconda',
+			'make set anaconda_location=~/libs/Miniconda3-latest-Linux-x86_64.sh',
+			'make set automacs="http://github.com/bradleyrp/automacs"',
+			'make set omnicalc="http://github.com/bradleyrp/omnicalc"',
+			'make setup',
+			'make template template_demo',
+			'make connect'],
+		'linux + anaconda + preserve environment':[
+			'make nuke sure env=False',
+			'make set species anaconda',
+			'make set anaconda_location=~/libs/Miniconda3-latest-Linux-x86_64.sh',
+			'make set automacs="http://github.com/bradleyrp/automacs"',
+			'make set omnicalc="http://github.com/bradleyrp/omnicalc"',
+			'make set setup_stamp=$(date +%Y%m%d%H%M%s)',
+			'make setup',
+			'make connect'],
+		'OSX + anaconda':[
+			'make nuke sure',
+			'make set species anaconda_osx',
+			'make set anaconda_location=~/libs/Miniconda3-latest-MacOSX-x86_64.sh',
+			'make set automacs="http://github.com/bradleyrp/automacs"',
+			'make set omnicalc="http://github.com/bradleyrp/omnicalc"',
+			'make template template_demo',
+			'make connect']}
+	for k,v in cmds.items():
+		print('\n[NOTE] to install %s, use:\n\n%s\n'%(k,' && '.join(v)))
 
 def init(refresh=False):
 	"""
