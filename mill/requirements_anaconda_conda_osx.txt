@@ -1,0 +1,21 @@
+# omnicalc requirements
+# removed cython
+numpy
+scipy
+joblib
+PyYAML
+h5py
+Pillow
+matplotlib
+scikit-learn
+# factory requirements
+Django
+beautifulsoup4
+pygments
+# omnicalc 3D (via mayavi) requirements
+# anaconda
+vtk
+pyqt
+distribute
+pyside
+qt
