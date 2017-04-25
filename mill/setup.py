@@ -216,7 +216,8 @@ class FactoryEnv:
 			self.source_cmd = 'source env/envs/py2/bin/activate py2'
 		#---! hard-coding the channel for MDAnalysis here.
 		#---! ...this is required because MDANalysis gives PyFPE_jbuf error if numpy is 1.12
-		#---! removed to avoid warning: bash(self.source_cmd+' && conda config --add channels MDAnalysis')
+		#---! removed to avoid warning: 
+                bash(self.source_cmd+' && conda config --add channels MDAnalysis')
 		for fn in self.reqs_conda:
 			print('[STATUS] installing packages via conda from %s'%fn)
 			#---we tell conda to ignore local user site-packages because version errors
