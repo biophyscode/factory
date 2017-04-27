@@ -144,7 +144,9 @@ def connect_single(connection_name,**specs):
 		settings_custom['GROMACS_CONFIG'] = os.path.join(os.getcwd(),gromacs_config_fn)
 	else: settings_custom['GROMACS_CONFIG'] = False
 	#---additional custom settings which are not paths
-	settings_custom['NOTEBOOK_PORT'] = 8888
+	#---notebook ports are always one higher than the site port
+	site_port = specs.get('port',8000)
+	settings_custom['NOTEBOOK_PORT'] = site_port + 1
 	settings_custom['NAME'] = connection_name
 
 	###---END DJANGO SETTINGS
@@ -408,7 +410,7 @@ def start_site(name,port):
         log=log_site%name
 	backrun(cmd='python %s runserver 0.0.0.0:%s'%(
                 os.path.join(os.getcwd(),site_dn,'manage.py'),port),
-                log=log,stopper=lock,killsig='KILL',scripted=False)
+                log=log,stopper=lock,killsig='KILL',scripted=False,kill_switch_coda='rm %s'%lock)
 	return lock,log
 
 def start_cluster(name):
@@ -432,7 +434,7 @@ def daemon_ender(fn,cleanup=True):
 		print('[WARNING] failed to shutdown lock file %s with exception:\n%s'%(fn,e))
 	if cleanup: os.remove(fn)
 
-def stop_locked(lock,log,cleanup=True):
+def stop_locked(lock,log,cleanup=False):
 	"""
 	Save the logs and terminate the server.
 	"""
@@ -452,16 +454,16 @@ def start_notebook(name,port):
 	#---note that TERM safely closes the notbook server
         lock='pid.%s.notebook.lock'%name
         log=log_notebook%name
-	backrun(cmd='python site/%s/manage.py shell_plus --notebook --no-browser'%name,
-		log=log,stopper=lock,killsig='TERM',scripted=False)
+    #---if you want django data in IPython, use:
+    #---...'python site/%s/manage.py shell_plus --notebook --no-browser'%name,
+    #---! we never figured out how to set ports, other jupyter settings, with shell_plus
+	backrun(cmd='jupyter notebook --no-browser --port %d'%port,
+		log=log,stopper=lock,killsig='TERM',scripted=False,kill_switch_coda='rm %s'%lock)
 	return lock,log
 
 def run(name):
 	"""
 	"""
-	#---precheck all ports 
-	check_port(8000)
-	check_port(8888)
 	#---start the site first before starting the cluster
         toc  = collect_connections(name)
         site_port=toc[name].get('port',8000)
@@ -487,11 +489,14 @@ def shutdown(name=None):
                 names=[name]
         for name in names:
 
-                try: stop_locked(lock='pid.%s.notebook.lock'%name,log=log_notebook%name)
-                except Exception as e: print('[WARNING] failed to stop notebook. exception: %s'%str(e))
-                try: stop_locked(lock='pid.%s.site.lock'%name,log=log_site%name)
-                except Exception as e: print('[WARNING] failed to stop site. exception: %s'%str(e))
+                #try: 
+                stop_locked(lock='pid.%s.notebook.lock'%name,log=log_notebook%name)
+                #except Exception as e: print('[WARNING] failed to stop notebook. exception: %s'%str(e))
+                #try: 
+                stop_locked(lock='pid.%s.site.lock'%name,log=log_site%name)
+                #except Exception as e: print('[WARNING] failed to stop site. exception: %s'%str(e))
                 #---the cluster cleans up after itself so we do not run the cleanup
-                try: stop_locked(lock='pid.%s.cluster.lock'%name,log=log_cluster%name,cleanup=False)
-                except Exception as e: print('[WARNING] failed to stop cluster. exception: %s'%str(e))
+                #try: 
+                stop_locked(lock='pid.%s.cluster.lock'%name,log=log_cluster%name)
+                #except Exception as e: print('[WARNING] failed to stop cluster. exception: %s'%str(e))
 

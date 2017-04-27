@@ -64,7 +64,10 @@ def backrun(**specs):
 	term_command = 'pkill -%s -g %d'%(specs.get('killsig','TERM'),job.pid)
 	if specs.get('double_kill',False): term_command = term_command+'\n'+term_command
 	kill_switch = os.path.join(cwd,stopper_fn)
-	with open(kill_switch,'w') as fp: fp.write(term_command+'\n')
+	kill_switch_coda = specs.get('kill_switch_coda',None)
+	with open(kill_switch,'w') as fp: 
+		fp.write(term_command+'\n')
+		if kill_switch_coda: fp.write('\n# cleanup\n%s\n'%kill_switch_coda)
 	if scripted: os.chmod(kill_switch,0o744)
 	job.communicate()
 	
