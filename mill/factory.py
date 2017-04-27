@@ -15,9 +15,9 @@ from setup import FactoryEnv
 
 str_types = [str,unicode] if sys.version_info<(3,0) else [str]
 
-log_site = 'logs/site'
-log_cluster = 'logs/cluster'
-log_notebook = 'logs/notebook'
+log_site = 'logs/site.%s'
+log_cluster = 'logs/cluster.%s'
+log_notebook = 'logs/notebook.%s'
 
 ###---CONNECT PROCEDURE PORTED FROM original FACTORY
 
@@ -363,16 +363,23 @@ def read_connection(*args):
 				toc.update(**{key:val})
 	return toc
 
+def collect_connections(name):
+        """
+        reads all avaialble connections
+        """
+	connects = glob.glob('connections/*.yaml')
+	if not connects: raise Exception('no connections available. try `make template` for some examples.')
+	#---read all connection files into one dictionary
+	toc = read_connection(*connects)
+	if name and name not in toc: raise Exception('cannot find projecte named "%s" in the connections'%name)
+        return toc
+
 def connect(name=None):
 	"""
 	Connect or reconnect a particular project.
 	"""
 	#---get all available connections
-	connects = glob.glob('connections/*.yaml')
-	if not connects: raise Exception('no connections available. try `make template` for some examples.')
-	#---read all connection files into one diction ary
-	toc = read_connection(*connects)
-	if name and name not in toc: raise Exception('cannot find projecte named "%s" in the connections'%name)
+        toc = collect_connections(name)
 	#---which connections we want to make
 	targets = [name] if name else toc.keys()
 	#---loop over desired connections
@@ -387,33 +394,30 @@ def check_port(port):
 	except socket.error as e: raise Exception('port %d is not free: %s'%(port,str(e)))
 	s.close()
 
-def start_site(name,lock='pid.site.lock',log=log_site):
+def start_site(name,port):
 	"""
 	"""
 	#---start django
 	site_dn = os.path.join('site',name)
 	if not os.path.isdir(site_dn): 
 		raise Exception('missing site/%s. did you forget to connect it?'%name)
-	check_port(8000)
+	check_port(port)
 	#---for some reason you have to KILL not TERM the runserver
 	#---! replace runserver with something more appropriate? a real server?
-	backrun(cmd='python %s runserver'%os.path.join(os.getcwd(),site_dn,'manage.py'),
-		log=log,stopper=lock,killsig='KILL',scripted=False)
+        lock='pid.%s.site.lock'%name
+        log=log_site%name
+	backrun(cmd='python %s runserver 0.0.0.0:%s'%(
+                os.path.join(os.getcwd(),site_dn,'manage.py'),port),
+                log=log,stopper=lock,killsig='KILL',scripted=False)
 	return lock,log
 
-def start_cluster(lock='pid.cluster.lock',log=log_cluster):
+def start_cluster(name):
 	"""
 	"""
-	#---if you want to run multiple clusters, use a more nuanced check for stale clusters
-	regex_stale = 'mill/cluster_start.py'
-	#---pre-check that there are no running clusters
-	ask = subprocess.Popen('ps xao comm,args',shell=True,
-		stdout=subprocess.PIPE,stderr=subprocess.PIPE,executable='/bin/bash')
-	stdout,stderr = ask.communicate()
-	if re.search(regex_stale,stdout):
-		raise Exception('there appears to be a stale cluster already running!')
 	#---start the cluster. argument is the location of the kill switch for clean shutdown
 	#---! eventually the cluster should move somewhere safe and the kill switches should be hidden
+        lock='pid.%s.cluster.lock'%name
+        log=log_cluster%name
 	#---! ...make shutdown should manage the clean shutdown
 	backrun(cmd='python -u mill/cluster_start.py %s'%lock,
 		log=log,stopper=lock,killsig='INT',scripted=False)
@@ -428,24 +432,26 @@ def daemon_ender(fn,cleanup=True):
 		print('[WARNING] failed to shutdown lock file %s with exception:\n%s'%(fn,e))
 	if cleanup: os.remove(fn)
 
-def stop_locked(what,lock,log,cleanup=True):
+def stop_locked(lock,log,cleanup=True):
 	"""
 	Save the logs and terminate the server.
 	"""
-	if what not in ['site','cluster','notebook']: raise Exception('can only stop site or cluster')
 	#---terminate first in case there is a problem saving the log
 	daemon_ender(lock,cleanup=cleanup)
 	stamp = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
 	if not os.path.isdir('logs'): raise Exception('logs directory is missing')
-	shutil.move(log,'logs/arch.%s.%s.log'%(what,stamp))
+        name = re.match('^pid\.(.*?)\.lock$',lock).group(1)
+	shutil.move(log,'logs/arch.%s.%s.log'%(name,stamp))
 
-def start_notebook(name,lock='pid.notebook.lock',log=log_notebook):
+def start_notebook(name,port):
 	"""
 	"""
-	check_port(8888)
+	check_port(port)
 	if not os.path.isdir(os.path.join('site',name)):
 		raise Exception('cannot find site for %s'%name)
 	#---note that TERM safely closes the notbook server
+        lock='pid.%s.notebook.lock'%name
+        log=log_notebook%name
 	backrun(cmd='python site/%s/manage.py shell_plus --notebook --no-browser'%name,
 		log=log,stopper=lock,killsig='TERM',scripted=False)
 	return lock,log
@@ -457,21 +463,35 @@ def run(name):
 	check_port(8000)
 	check_port(8888)
 	#---start the site first before starting the cluster
-	lock_site,log_site = start_site(name)
-	try: lock_cluster,log_cluster = start_cluster()
+        toc  = collect_connections(name)
+        site_port=toc[name].get('port',8000)
+        nb_port = site_port + 1
+	check_port(site_port)
+	check_port(nb_port)
+	lock_site,log_site = start_site(name,site_port)
+	try: lock_cluster,log_cluster = start_cluster(name)
 	except Exception as e:
-		stop_locked('site',lock=lock_site,log=log_site)
+		stop_locked(lock=lock_site,log=log_site)
 		raise Exception('failed to start the cluster so we shut down the site. exception: %s'%str(e)) 
-	start_notebook(name)
+	start_notebook(name,nb_port)
 	#except: print('[WARNING] notebook failed!')
 
-def shutdown():
+def shutdown(name=None):
 	"""
 	"""
-	try: stop_locked('notebook',lock='pid.notebook.lock',log=log_notebook)
-	except Exception as e: print('[WARNING] failed to stop notebook. exception: %s'%str(e))
-	try: stop_locked('site',lock='pid.site.lock',log=log_site)
-	except Exception as e: print('[WARNING] failed to stop site. exception: %s'%str(e))
-	#---the cluster cleans up after itself so we do not run the cleanup
-	try: stop_locked('cluster',lock='pid.cluster.lock',log=log_cluster,cleanup=False)
-	except Exception as e: print('[WARNING] failed to stop cluster. exception: %s'%str(e))
+        if not name:
+                locks=glob.glob('pid.*.lock')
+                names=list(set([re.match('pid\.(.*?)\.(cluster|site|notebook)\.lock',lock).group(1)
+                                for lock in locks]))
+        else:
+                names=[name]
+        for name in names:
+
+                try: stop_locked(lock='pid.%s.notebook.lock'%name,log=log_notebook%name)
+                except Exception as e: print('[WARNING] failed to stop notebook. exception: %s'%str(e))
+                try: stop_locked(lock='pid.%s.site.lock'%name,log=log_site%name)
+                except Exception as e: print('[WARNING] failed to stop site. exception: %s'%str(e))
+                #---the cluster cleans up after itself so we do not run the cleanup
+                try: stop_locked(lock='pid.%s.cluster.lock'%name,log=log_cluster%name,cleanup=False)
+                except Exception as e: print('[WARNING] failed to stop cluster. exception: %s'%str(e))
+
