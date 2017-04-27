@@ -280,7 +280,7 @@ def connect_single(connection_name,**specs):
 		#---after making a blank repo we put a placeholder in the config
 		bash('make set calculations_repo="no_upstream"',cwd=specs['calc'])
 		#---also generate a blank metadata so that the interface works
-		bash('make blank_meta',cwd=specs['calcs'])
+		bash('make blank_meta',cwd=specs['calc'])
 		msg = ('When connecting to project %s, the "repo" flag in your connection file points to nowhere. '
 			'We made a blank git repository at %s. You should develop your calculations there, push that '
 			'repo somewhere safe, and distribute it to all your friends, who can use the "repo" flag to '
@@ -453,6 +453,9 @@ def start_notebook(name,lock='pid.notebook.lock',log=log_notebook):
 def run(name):
 	"""
 	"""
+	#---precheck all ports 
+	check_port(8000)
+	check_port(8888)
 	#---start the site first before starting the cluster
 	lock_site,log_site = start_site(name)
 	try: lock_cluster,log_cluster = start_cluster()
