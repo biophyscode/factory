@@ -64,8 +64,10 @@ def export_notebook(plotname):
 	cwd = settings.CALC
 	target = 'calcs/plot-%s.py'%plotname
 	dest = 'calcs/plot-%s.ipynb'%plotname
-	regex_splitter = r'\n\#---cellblock\s*\n'
+	regex_splitter = r'(\n\#-*block:.*?\n)'
 	regex_hashbang = r'^\#.*?\n(.+)$'
+	#---all tabs are converted to spaces because Jupyter
+	tab_width = 4
 	#---make a new notebook
 	nb = nbf.v4.new_notebook()
 	#---read the target plotting script
@@ -78,7 +80,11 @@ def export_notebook(plotname):
 	#---write the header cell
 	nb['cells'].append(nbf.v4.new_code_cell(header_code.strip()%plotname))
 	#---write the remaining blocks with double-newlines demiting the cells
-	for chunk in re.split(regex_splitter,re.match(regex_hashbang,text,flags=re.M+re.DOTALL).group(1)):
-		nb['cells'].append(nbf.v4.new_code_cell(chunk.strip()))
+	text_no_hashbang = re.match(regex_hashbang,text,flags=re.M+re.DOTALL).group(1)
+	#---split keeps the delimiters and we associate them with the trailing chunks
+	chunks = re.split(regex_splitter,text_no_hashbang)
+	chunks = [chunks[0]]+[chunks[i]+chunks[i+1] for i in range(1,len(chunks),2)]
+	for chunk in chunks:
+		nb['cells'].append(nbf.v4.new_code_cell(re.sub('\t',' '*tab_width,chunk.strip())))
 	#---write the notebook
 	with open(os.path.join(cwd,dest),'w') as fp: nbf.write(nb,fp)

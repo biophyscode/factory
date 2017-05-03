@@ -15,6 +15,7 @@ checkfile = .pipeline_up_to_date
 protected_targets=
 # pass debug flag for automatic debugging
 PYTHON_DEBUG = "$(shell echo $$PYTHON_DEBUG)"
+# flags: B excludes bytecode, 3 and warn about python3 (if 2), tt throws error
 python_flags = "-B"
 
 # filter and evaluate

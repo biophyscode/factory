@@ -2,6 +2,7 @@
 __pycache__
 .pipeline_up_to_date
 db.sqlite3
+pid.*.lock
 /gromacs_config.py
 calc/
 config.py
