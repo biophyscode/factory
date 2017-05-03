@@ -387,14 +387,19 @@ def connect(name=None):
 	#---loop over desired connections
 	for project in targets: connect_single(project,**toc[project])
 
-def check_port(port):
+def check_port(port,strict=False):
 	"""
 	"""
+	free = True
 	import socket
 	s = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
 	try: s.bind(("127.0.0.1",port))
-	except socket.error as e: raise Exception('port %d is not free: %s'%(port,str(e)))
+	except socket.error as e: 
+		free = False
+		if strict: raise Exception('port %d is not free: %s'%(port,str(e)))
+		else: print('[WARNING] port %d still occupied'%port)
 	s.close()
+	return free
 
 def start_site(name,port):
 	"""
@@ -465,9 +470,9 @@ def run(name):
 	"""
 	"""
 	#---start the site first before starting the cluster
-        toc  = collect_connections(name)
-        site_port=toc[name].get('port',8000)
-        nb_port = site_port + 1
+	toc  = collect_connections(name)
+	site_port = toc[name].get('port',8000)
+	nb_port = site_port + 1
 	check_port(site_port)
 	check_port(nb_port)
 	lock_site,log_site = start_site(name,site_port)
@@ -481,22 +486,29 @@ def run(name):
 def shutdown(name=None):
 	"""
 	"""
-        if not name:
-                locks=glob.glob('pid.*.lock')
-                names=list(set([re.match('pid\.(.*?)\.(cluster|site|notebook)\.lock',lock).group(1)
-                                for lock in locks]))
-        else:
-                names=[name]
-        for name in names:
-
-                #try: 
-                stop_locked(lock='pid.%s.notebook.lock'%name,log=log_notebook%name)
-                #except Exception as e: print('[WARNING] failed to stop notebook. exception: %s'%str(e))
-                #try: 
-                stop_locked(lock='pid.%s.site.lock'%name,log=log_site%name)
-                #except Exception as e: print('[WARNING] failed to stop site. exception: %s'%str(e))
-                #---the cluster cleans up after itself so we do not run the cleanup
-                #try: 
-                stop_locked(lock='pid.%s.cluster.lock'%name,log=log_cluster%name)
-                #except Exception as e: print('[WARNING] failed to stop cluster. exception: %s'%str(e))
+	#---maximum number of seconds to wait for all ports to close
+	max_wait,interval = 30.,3.
+	if not name:
+		locks = glob.glob('pid.*.lock')
+		names = list(set([re.match('pid\.(.*?)\.(cluster|site|notebook)\.lock',lock).group(1)
+			for lock in locks]))
+	else: names=[name]
+	toc  = collect_connections(name)
+	ports_need_closed = []
+	for name in names:
+		ports_need_closed.append(toc[name].get('port',8000))
+		try: stop_locked(lock='pid.%s.notebook.lock'%name,log=log_notebook%name)
+		except Exception as e: print('[WARNING] failed to stop notebook. exception: %s'%str(e))
+		try: stop_locked(lock='pid.%s.site.lock'%name,log=log_site%name)
+		except Exception as e: print('[WARNING] failed to stop site. exception: %s'%str(e))
+		#---the cluster cleans up after itself so we do not run the cleanup
+		try: stop_locked(lock='pid.%s.cluster.lock'%name,log=log_cluster%name)
+		except Exception as e: print('[WARNING] failed to stop cluster. exception: %s'%str(e))
+	while True:
+		ports_occupied = [p for p in set(ports_need_closed) if not check_port(p,strict=False)]
+		print('[STATUS] ports_occupied: %s'%ports_occupied)
+		if any(ports_occupied) and waits < max_wait:
+			waits += interval
+			print('[STATUS] waiting for ports to close: %s'%ports_occupied)
+		else: break
 
