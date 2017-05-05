@@ -15,6 +15,7 @@ def backrun(**specs):
 	Run a script in the background with a new group ID and a script which will kill the job and children.
 	"""
 	cwd = specs.get('cwd','./')
+	sudo = specs.get('sudo',False)
 	if 'log' in specs: log_fn = specs['log']
 	elif 'name' in specs: log_fn = 'log-backrun-%s'%specs['name']
 	else: raise Exception('need argument: name or log')
@@ -61,13 +62,14 @@ def backrun(**specs):
 			raise Exception('job is missing from `ps` so it probably failed. see %s'%log_fn)
 		pgid = int(ids[2])
 	print('[BACKRUN] pgid=%d kill_switch=%s'%(job.pid,stopper_fn))
-	term_command = 'pkill -%s -g %d'%(specs.get('killsig','TERM'),job.pid)
+	term_command = '%spkill -%s -g %d'%('sudo ' if sudo else '',specs.get('killsig','TERM'),job.pid)
 	if specs.get('double_kill',False): term_command = term_command+'\n'+term_command
 	kill_switch = os.path.join(cwd,stopper_fn)
 	kill_switch_coda = specs.get('kill_switch_coda',None)
 	with open(kill_switch,'w') as fp: 
 		fp.write(term_command+'\n')
-		if kill_switch_coda: fp.write('\n# cleanup\n%s\n'%kill_switch_coda)
+		#---! the following sudo on cleanup only works for a one-line command
+		if kill_switch_coda: fp.write('\n# cleanup\n%s%s\n'%('sudo ' if sudo else '',kill_switch_coda))
 	if scripted: os.chmod(kill_switch,0o744)
 	job.communicate()
 	
