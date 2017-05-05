@@ -3,3 +3,5 @@ django-extensions
 ipython[notebook]
 brewer2mpl
 mayavi
+# serve django via apache
+mod_wsgi

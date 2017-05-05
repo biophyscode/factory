@@ -20,3 +20,5 @@ pyqt
 distribute
 pyside
 qt
+# widgets for ipython notebook
+ipywidgets
