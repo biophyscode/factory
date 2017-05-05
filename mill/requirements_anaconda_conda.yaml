@@ -1,0 +1,32 @@
+name: py2
+prefix: /run/media/rpb/store-omicron/dev-factory/factory/env/envs/py2
+channels:
+  - conda-forge
+  - defaults
+  - MDanalysis
+dependencies:
+  # omnicalc requirements
+  # removed cython
+  - numpy
+  - scipy
+  - MDAnalysis
+  - joblib
+  - PyYAML
+  - h5py
+  - Pillow
+  - matplotlib
+  - scikit-learn
+  # factory requirements
+  - Django
+  - beautifulsoup4
+  - pygments
+  # omnicalc 3D (via mayavi) requirements
+  # anaconda
+  - vtk
+  - pyqt
+  - distribute
+  - pyside
+  - qt
+  # widgets for ipython notebook
+  - ipywidgets
+  #! we would prefer to install mod_wsgi here but conda only has it for python 3.4 (see pip)
