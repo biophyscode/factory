@@ -305,6 +305,15 @@ def connect_single(connection_name,**specs):
 	#---! previously ran register_calculation.py here -- may be worth recapping in this version?
 	#---! prepare vhost file here when it's ready
 	#---??? IS THIS IT ???
+	#---write spots to config
+	if 'spots' in specs:
+		config_fn = os.path.join(specs['calc'],'config.py')
+		with open(config_fn) as fp: config = eval(fp.read())
+		config['spots'] = specs['spots']
+		import pprint
+		#---write the config
+		with open(config_fn,'w') as fp: 
+			fp.write('#!/usr/bin/env python -B\n'+str(pprint.pformat(config,width=110)))
 
 #---! later you need to add omnicalc functionality
 if False: get_omni_dataspots = """if os.path.isfile(CALCSPOT+'/paths.py'):
@@ -373,7 +382,7 @@ def collect_connections(name):
 	if not connects: raise Exception('no connections available. try `make template` for some examples.')
 	#---read all connection files into one dictionary
 	toc = read_connection(*connects)
-	if name and name not in toc: raise Exception('cannot find projecte named "%s" in the connections'%name)
+	if name and name not in toc: raise Exception('cannot find project named "%s" in the connections'%name)
         return toc
 
 def connect(name=None):
