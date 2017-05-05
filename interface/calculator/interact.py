@@ -43,13 +43,23 @@ def get_notebook_token():
 	"""
 	See if there is a notebook server running for the factory.
 	"""
-	call = subprocess.Popen('jupyter notebook list'.split(),stdout=subprocess.PIPE,stderr=subprocess.PIPE)
-	stdout,stderr = call.communicate()
-	token_regex = r'\n(?:http.*?\/\?token=)(.*?)\s.*?(\/.+)\s'
-	#---we add trailing slashes to paths to match the settings.FACTORY convention (all paths get trails)
-	jupyters = dict([(os.path.join(j,''),i) for i,j in re.findall(token_regex,stdout)])	
-	if settings.FACTORY in jupyters: return jupyters[settings.FACTORY]
-	else: return 'TOKEN_ERROR'
+	#---deprecated in favor of checking the log because public causes problems
+	if False:
+		call = subprocess.Popen('jupyter notebook list'.split(),stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+		stdout,stderr = call.communicate()
+		token_regex = r'\n(?:http.*?\/\?token=)(.*?)\s.*?(\/.+)\s'
+		#---we add trailing slashes to paths to match the settings.FACTORY convention (all paths get trails)
+		jupyters = dict([(os.path.join(j,''),i) for i,j in re.findall(token_regex,stdout)])	
+		if settings.FACTORY in jupyters: return jupyters[settings.FACTORY]
+		else: return 'TOKEN_ERROR'
+	#---check the notebook log file to get the token
+	with open('logs/notebook.%s'%settings.NAME) as fp: text = fp.read()
+	token_regex = r'http:(?:.*?)\:(\d+)(?:\/\?token=)(.*?)\s.*?(?:\/.+)\s'
+	jupyters_by_port = dict(re.findall(token_regex,text,re.M+re.DOTALL))
+	if len(jupyters_by_port)!=1: 
+		print(text)
+		raise Exception('error figuring out jupyter token: %s'%jupyters_by_port)
+	else: return jupyters_by_port.values()[0]
 
 header_code = """
 plotname = '%s'

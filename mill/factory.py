@@ -369,7 +369,7 @@ def read_connection(*args):
 			contents = yaml.load(fp.read())
 			for key,val in contents.items():
 				if key in toc: 
-					raise Exception('found key %s in the toc already. redundant copy in %s'%arg)
+					raise Exception('found key %s in the toc already. redundant copy in %s'%(key,arg))
 				toc.update(**{key:val})
 	return toc
 
