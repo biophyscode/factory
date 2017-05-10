@@ -1,47 +1,51 @@
 {% extends "calculator/base.html" %}
 {% load staticfiles %}
+{% block title %}factory-calculator{% endblock %}
 {% block content %}
 
-<div id="container_nav">
+<div id="container">
 
-<!--nav has a separate container on the calculation page for clarity-->
 <div class="brick">
 {% include "calculator/navigate.html" %}
 </div>
 
-</div>
-
-<div id="container">
-
-{% if missings %}
+{% if show_workspace_toggles %}
 <div class="brick">
-Note that the metadata are lacking: {{ missings }}.
+{% include "calculator/workspace_status.html" %}
 </div>
 {% endif %}
 
-{% if plots_tree %}
-<div class="brick">
-{% include "calculator/list_plots.html" %}
+<!---removed "or logging_text" below to remove stray consoles ... -->
+{% if show_console %}
+<div id="logging" class="brick brick-wide2">
+<a name="{{ console }}"></a> 
+<h2>console <a href="#">&#10531;</a></h2>
+{% if logging %}
+<code>{{ logging }}</code> 
+{% else %}
+{% endif %}
+
+<div class="btn-group" role="group" style="margin: 10px 0 10px 0;">
+<span id="calculator_status" class="label label-info">{{ log_status }}</span>
+<button id="reset_calculator" class="label label-default">reset calculator</button>
+</div>
+
+<code><textarea readonly id="textarea_logging" style="min-height:30em;font-weight:400;width:100%;resize:none;"
+spellcheck="false" placeholder="CALCULATOR CONSOLE">{{ log_text }}</textarea></code>
 </div>
 {% endif %}
 
-{% if calcs_tree %}
-<div class="brick">
-{% include "calculator/list_calcs.html" %}
-</div>
+{% if album %}
+{% include "calculator/album.html" %}
 {% endif %}
 
-{% if slices_tree %}
-<div class="brick">
-{% include "calculator/list_meta.html" %}
+{% for treekey,tree in trees.items %}
+<div id="{{ treekey }}_tree_brick" class="brick">
+<a name="{{ tree.name }}"></a> 
+<h2>{{ tree.title }} <a href="#" id="top_from_{{ tree.name }}" >&#10531;</a></h2>
+<div id="{{ tree.name }}_tree"></div>
 </div>
-{% endif %}
-
-{% if posts_tree %}
-<div class="brick brick-wide2">
-{% include "calculator/list_postdat.html" %}
-</div>
-{% endif %}
+{% endfor %}
 
 </div>
 

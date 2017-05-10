@@ -5,7 +5,9 @@
 <tbody>
 <tr>
 <td></td>
-<td><input class="button" type="submit" value="upload coordinates" name='upload_button' id="submit_coordinates"/></td>
+<td>
+<input class="button" type="submit" value="upload coordinates" 
+	name='upload_button' id="submit_coordinates"/></td>
 </tr>
 {% csrf_token %}
 {{ form_upload_coords.as_table }}

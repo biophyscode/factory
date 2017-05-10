@@ -1,6 +1,7 @@
 {% extends "calculator/base.html" %}
-{% block content %}
 {% load code_syntax %}
+{% block title %}{{ path|safe }}{% endblock %}
+{% block content %}
 
 <!--on the calculator page the navigate has own container-->
 <div id="container">
@@ -26,9 +27,7 @@ The factory can automatically convert standard plot codes into IPython notebooks
 </div>
 {% endif %}
 
-<div class="brick brick-wide2">
 <h2>{{ path|safe }}</h2>
 {{ raw_code|highlight|safe }}
-</div>
 
 {% endblock %}

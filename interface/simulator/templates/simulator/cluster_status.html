@@ -1,7 +1,7 @@
 
 <h2>cluster</h2>
-<textarea readonly id="destination_cluster" style="min-height:10em;font-weight:400;width:100%;"
-spellcheck="false" placeholder="cluster appears idle: refresh to start logging again"></textarea>
+<code><textarea readonly id="destination_cluster" style="min-height:10em;font-weight:400;width:100%;"
+spellcheck="false" placeholder="cluster appears idle: refresh to start logging again"></textarea></code>
 
 {% if cluster_stat %}
 <table style="padding:10px 0 0 0;">
@@ -52,30 +52,31 @@ $.ajaxSetup({
     }
 }); 
 function doUpdate_queue() {
-$.ajax({
-    url: 'cluster_view',
-    type: 'get',
-    cache: true,
-    success: function(data) {
-        $('#result_queue').show();
-        if(data.running){
-            // only change text if running so the log remains after the calculation
-            if(data.line!='' && data.line != document.getElementById("destination_cluster").innerHTML) { 
-                document.getElementById("destination_cluster").innerHTML = data.line;
-                $(window).trigger("resize");
-                }
-            document.getElementById('destination_cluster').scrollTop = 
-                document.getElementById('destination_cluster').scrollHeight;
-            document.getElementById("destination_cluster").style.overflow = "hidden"; 
-        } else { 
-            document.getElementById("destination_cluster").style.overflow="visible"; 
-        }
-    },
-    failure: function(data) { 
-        $('#result_queue').append("ERROR");
-    },
+    $.ajax({
+        url: 'cluster_view',
+        type: 'get',
+        cache: true,
+        success: function(data) {
+            $('#result_queue').show();
+            if(data.running){
+                // only change text if running so the log remains after the calculation
+                if(data.line!='' && data.line != 
+                    document.getElementById("destination_cluster").innerHTML) { 
+                    document.getElementById("destination_cluster").innerHTML = data.line;
+                    $(window).trigger("resize");
+                    }
+                document.getElementById('destination_cluster').scrollTop = 
+                    document.getElementById('destination_cluster').scrollHeight;
+                document.getElementById("destination_cluster").style.overflow = "hidden"; 
+            } else { 
+                document.getElementById("destination_cluster").style.overflow="visible"; 
+            }
+        },
+        failure: function(data) { 
+            $('#result_queue').append("ERROR");
+        },
 
-});
+    });
 }
 doUpdate_queue()
 setInterval("doUpdate_queue()",3000);

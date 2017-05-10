@@ -1,7 +1,7 @@
 {% load staticfiles %}
 
 <head>
-	<title>factory</title>
+	<title>{% block title %}{% endblock %}</title>
 	<meta content="text/html; charset=utf-8" http-equiv="content-type">
 	<meta name="description" content=""/>
 	<meta name="keywords" content=""/>
@@ -9,12 +9,11 @@
 	<!---! add setting to turn off tiling here-->
 	<script type="text/javascript" src="{% static "jquery-3.2.1.min.js" %}"></script>
 	<script type="text/javascript" src="{% static "masonry.pkgd.min.js" %}"></script>
-	<script type="text/javascript" src="{% static "bootstrap-treeview.min.js" %}"></script>
-	<!---bootstrap.css messes up ours. the formatting on the simulator page looks weird ... ??? -->
-	<!--<link rel="stylesheet" type="text/css" href="{% static "bootstrap.css" %}">-->
-	<link rel="stylesheet" type="text/css" href="{% static "bootstrap-treeview.min.css" %}">
-	<link rel="stylesheet" type="text/css" href="{% static "style.css" %}">
-	</style>
+	<script type="text/javascript" src="{% static "bootstrap-treeview.js" %}"></script>
+    <script type="text/javascript" src="{% static "bootstrap.min.js" %}"></script>
+    <link href="{% static "bootstrap.css" %}" rel="stylesheet">
+    <link rel="stylesheet" type="text/css" href="{% static "pygments.css" %}">
+    <link href="{% static "style.base.css" %}" rel="stylesheet">
 </head>
 <body>
 
@@ -22,11 +21,18 @@
 {% endblock %}
 
 <script>
-var container = document.querySelector('.container');
-var masonry = new Masonry(container, {
-columnWidth: 50,
-itemSelector: '.brick'
+
+// masonry container
+var $grid = $('#container').masonry({
+    columnWidth: 50,
+    itemSelector: '.brick'
 });
+
+// masonry refresh when ready
+$(document).ready(function () {
+    $grid.masonry('layout');
+});
+
 </script>
 
 </body>

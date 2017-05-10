@@ -1,9 +1,21 @@
 from django.conf.urls import url
+from django.conf.urls.static import static
+from django.conf import settings
 
 from . import views
 
 urlpatterns = [
 	url(r'^$',views.index,name='index'),
+	url(r'^$',views.index,kwargs={'workspace':'true','pictures':'true'},name='index'),
+	url(r'^workspace$',views.index,kwargs={'workspace':'true','pictures':'false'},name='index'),
+	url(r'^pictures$',views.index,kwargs={'workspace':'false','pictures':'true'},name='index'),
+	url(r'^clear_logging$',views.clear_logging,name='clear_logging'),
+	url(r'^refresh$',views.refresh,name='refresh'),
+	url(r'^compute$',views.compute,name='compute'),
 	url(r'^get_code/(?P<name>.+)$',views.get_code,name='get_code'),
 	url(r'^make_notebook/(?P<name>.+)$',views.make_notebook,name='make_notebook'),
+	url(r'^logging$',views.logging,name='logging'),
 ]
+
+#---static paths
+urlpatterns += static('/media/raw/',document_root=settings.PLOT)

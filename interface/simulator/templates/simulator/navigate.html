@@ -1,26 +1,49 @@
 {% load staticfiles %}
 
-<!---hard-code the width in case user turns off the tiling-->
-<table style="vertical-align:middle;text-align:center;max-width:400px" width="100%">
-<tr><td align="center">
-<p style="color:grey;">
-<img height="60" width="60" style="color:grey;border: 3px solid white;border-radius:5px"
-src="{% static "factory.png" %}" border="0">
-<br><strong>factory</strong></p></td>
-<td align="center">
-<a href="{{ SITE_URL }}/simulator" style="color:#000000;">
-<img height="60" width="60" style="border: 3px solid grey;border-radius:5px"
-src="{% static "automacs.png" %}" border="0"></a>
-<a href="{{ SITE_URL }}/simulator" style="color:#000000;text-decoration:none;">
-<br><strong>simulator</strong></a></td>
-<td align="center">
-<a href="{{ SITE_URL }}/calculator" style="color:#000000;">
-<img height="60" width="60" style="border: 3px solid white;border-radius:5px"
-src="{% static "omnicalc.png" %}" border="0"></a>
-<a href="{{ SITE_URL }}/calculator" style="color:#000000;text-decoration:none;">
-<br><strong>calculator</strong></a></td></tr></table>
+<table style="width:auto;">
+<tr>
+	<td>
+		<img height="60" width="60" style="border: 3px solid white;border-radius:5px;margin: 0 0 20px 0"
+			src="{% static "factory.png" %}" border="0">
+	</td>
+	<td style="width:100%;text-align:left;vertical-align:middle;">
+		<ul style="list-style: none;">
+		<li><strong style="font-size:200%"><code>factory</code></strong></li>
+		<li>by <a href="http://biophyscode.github.io/" target="_blank">BioPhysCode</a></li>
+		</ul>
+	</td>
+</tr>
+<tr>
+	<td>
+		<a href="{{ SITE_URL }}/simulator">
+		<img height="60" width="60" style="border: 3px solid gray;border-radius:5px"
+		src="{% static "automacs.png" %}" border="0"></a>
+		<a href="{{ SITE_URL }}/simulator" style="color:black;text-decoration:none;">
+		<br><strong>simulator</strong></a></td>
+	</td>
+	<td>
+		<ul style="list-style: none;">
+			<li><a href="{{ SITE_URL }}/simulator">simulator dashboard</a><br></li>
+			<li><a href="https://bradleyrp.github.io/automacs-docs/">automacs documentation</a><br></li>
+		</ul>
+	</td>
+</tr>
+<tr>
+	<td>
+		<a href="{{ SITE_URL }}/calculator">
+		<img height="60" width="60" style="border: 3px solid white;border-radius:5px"
+		src="{% static "omnicalc.png" %}" border="0"></a>
+		<a href="{{ SITE_URL }}/calculator" style="color:black;text-decoration:none;">
+		<br><strong>calculator</strong></a>
+	</td>
+	<td>
+		<ul style="list-style: none;">
+			<li><a href="{{ SITE_URL }}/simulator">calculator dashboard</a><br></li>
+			<li><a href="http://{{ NOTEBOOK_IP }}:{{ NOTEBOOK_PORT }}/tree/calc/{{ NAME }}/calcs?token={{ notebook_token }}" target="_blank">interactive notebooks</a></li>
+			<li><a href="workspace">only workspace</a><br></li>
+			<li><a href="pictures">only pictures</a><br></li>
 
-<ul class="widelist">
-<li><a href="../admin" target="_blank">admin</a><br></li>
-<li><a href="http://biophyscode.github.io/" target="_blank">BioPhysCode</a><br></li>
-</ul>
+		</ul>
+	</td>
+</tr>
+</table>
