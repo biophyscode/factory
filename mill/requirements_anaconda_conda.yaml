@@ -29,4 +29,5 @@ dependencies:
   - qt
   # widgets for ipython notebook
   - ipywidgets
+  #- jupyter_contrib_nbextensions
   #! we would prefer to install mod_wsgi here but conda only has it for python 3.4 (see pip)

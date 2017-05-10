@@ -5,4 +5,5 @@ brewer2mpl
 mayavi
 # serve django via apache (requires apache2-devel rpm because no conda package for py2 yet)
 mod_wsgi
-django-lockdown
+jupyter_contrib_nbextensions
+#django-lockdown
