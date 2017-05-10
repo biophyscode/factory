@@ -3,13 +3,13 @@
 """
 """
 
-import os,sys,glob,re,shutil,subprocess,textwrap,datetime
+import os,sys,glob,re,shutil,subprocess,textwrap,datetime,time
 from config import bash,read_config
 from makeface import abspath
 from datapack import asciitree
 from cluster import backrun
 
-__all__ = ['connect','template','connect','run','shutdown']
+__all__ = ['connect','template','connect','run','shutdown','sudo_shutdown']
 
 from setup import FactoryEnv
 
@@ -19,7 +19,19 @@ log_site = 'logs/site.%s'
 log_cluster = 'logs/cluster.%s'
 log_notebook = 'logs/notebook.%s'
 
+import pwd,grp
+username = pwd.getpwuid(os.getuid())[0]
+uid = pwd.getpwnam(username).pw_uid
+#---! dangerous if the user is not in
+gid = grp.getgrnam('users').gr_gid
+
 ###---CONNECT PROCEDURE PORTED FROM original FACTORY
+
+def chown_user(fn):
+	try: os.chown(fn,uid,gid)
+	except: 
+		print('CHOWN fail')
+		pass
 
 def find_and_replace(fn,*args):
 	"""
@@ -81,6 +93,14 @@ urlpatterns = [
 	url(r'^simulator/',include('simulator.urls',namespace='simulator')),
 	url(r'^calculator/',include('calculator.urls',namespace='calculator')),
 	url(r'^admin/', admin.site.urls),]
+"""
+
+#---authorization for public sites
+code_check_passwd = """		
+def check_password(environ,user,password):
+	creds = %s
+	if (user,password) in creds: return True
+	else: False
 """
 
 def connect_single(connection_name,**specs):
@@ -146,16 +166,21 @@ def connect_single(connection_name,**specs):
 		settings_custom['GROMACS_CONFIG'] = os.path.join(os.getcwd(),gromacs_config_fn)
 	else: settings_custom['GROMACS_CONFIG'] = False
 	#---additional custom settings which are not paths
-	#---notebook ports are always one higher than the site port
-	site_port = specs.get('port',8000)
-	if 'notebook_ip' in specs: 
-		settings_custom['NOTEBOOK_IP'] = specs['notebook_ip']
-		settings_custom['NOTEBOOK_PORT'] = specs['port_public_notebook']
-	else: 
+	#---if there is a public dictionary and we receive the "public" flag from make we serve public site
+	if specs.get('public',None):
+		site_port = specs['public'].get('port',8000)
+		settings_custom['NOTEBOOK_IP'] = specs['public']['notebook_ip']
+		settings_custom['NOTEBOOK_PORT'] = specs['public'].get('port_notebook',site_port+1)
+		settings_custom['extra_allowed_hosts'] = list(set(['localhost']+specs['public'].get('hostnames',[])))
+	#---serve locally
+	else:
+		#---note that notebook ports are always one higher than the site port
+		site_port = specs.get('port',8000)
 		settings_custom['NOTEBOOK_IP'] = 'localhost'
-		settings_custom['NOTEBOOK_PORT'] = site_port + 1
+		settings_custom['NOTEBOOK_PORT'] = specs.get('port_notebook',site_port+1)
+		settings_custom['extra_allowed_hosts'] = []
+	#---name this project
 	settings_custom['NAME'] = connection_name
-	settings_custom['extra_allowed_hosts'] = specs.get('hostnames',[])
 
 	###---END DJANGO SETTINGS
 
@@ -219,7 +244,7 @@ def connect_single(connection_name,**specs):
 		for key,val in settings_custom.items():
 			#---! is there a pythonic way to write a dictionary to a script of immutables
 			if ((type(val) in str_types and re.match('^(False|True)$',val)) or key in custom_literals
-				or type(val)==bool or type(val)==list):
+				or type(val) in [bool,list,tuple]):
 				out = '%s = %s\n'%(key,val)
 			else: out = '%s = "%s"\n'%(key,val)
 			fp.write(out)
@@ -304,6 +329,12 @@ def connect_single(connection_name,**specs):
 		for filt in calc_meta_filters:
 			#---note that meta_filter is turned into a list in config.py in omnicalc
 			bash('make set meta_filter="%s"'%filt,cwd=specs['calc'])
+
+	#---write key,value pairs as Basic Auth user/passwords
+	creds = specs.get('credentials',{})
+	if creds: 
+		with open(os.path.join('site',connection_name,connection_name,'wsgi_auth.py'),'w') as fp:
+			fp.write(code_check_passwd%str([(k,v) for k,v in creds.items()]))
 
 	#---configure omnicalc 
 	#---note that make set commands can change the configuration without a problem
@@ -393,7 +424,7 @@ def collect_connections(name):
 	if name and name not in toc: raise Exception('cannot find project named "%s" in the connections'%name)
         return toc
 
-def connect(name=None):
+def connect(name=None,public=False):
 	"""
 	Connect or reconnect a particular project.
 	"""
@@ -401,8 +432,11 @@ def connect(name=None):
 	toc = collect_connections(name)
 	#---which connections we want to make
 	targets = [name] if name else toc.keys()
-	#---loop over desired connections
-	for project in targets: connect_single(project,**toc[project])
+	#---loop over desired connection
+	for project in targets: 
+		#---hide the "public" subdictionary if we are not running public
+		if not public: toc[project].pop('public',None)
+		connect_single(project,**toc[project])
 
 def check_port(port,strict=False):
 	"""
@@ -442,8 +476,11 @@ def start_site(name,port,public=False):
 			'--port %d site/%s/%s/wsgi.py --user %s --group %s '+
 			'--python-path site/%s --url-alias /static interface/static')%(
 			port,name,name,user,group,name)
+		auth_fn = os.path.join('site',name,name,'wsgi_auth.py')
+		if os.path.isfile(auth_fn): cmd += ' --auth-user-script=%s'%auth_fn
 	backrun(cmd=cmd,log=log,stopper=lock,killsig='KILL',sudo=public,
 		scripted=False,kill_switch_coda='rm %s'%lock)
+	if public: chown_user(log)
 	return lock,log
 
 def start_cluster(name,public=False):
@@ -458,6 +495,7 @@ def start_cluster(name,public=False):
 	#---! run the cluster as the user when running public?
 	backrun(cmd='python -u mill/cluster_start.py %s'%lock,
 		log=log,stopper=lock,killsig='INT',scripted=False,sudo=public)
+	if public: chown_user(log)
 	return lock,log
 
 def daemon_ender(fn,cleanup=True):
@@ -485,22 +523,25 @@ def get_public_ports(name):
 	#---ensure sudo
 	if not os.geteuid()==0:
 		raise Exception('you must run public as sudo!')
-	reqs = ['port_public_site','port_public_notebook','public_user_and_group']
+	#---collect details from the connection
+	reqs = 'port user group hostnames notebook_ip'.split()
 	toc  = collect_connections(name)
-	missing_keys = [i for i in reqs if i not in toc[name]]
+	if not toc[name].get('public',None): raise Exception('need "public" for connection %s'%name)
+	public_details = toc[name]['public']
+	missing_keys = [i for i in reqs if i not in public_details]
 	if any(missing_keys):
 		raise Exception('missing keys from connection: %s'%missing_keys)
-	user,group = toc[name]['public_user_and_group']
-	details = dict(user=user,group=group,
-		port_notebook=toc[name]['port_public_notebook'],port_site=toc[name]['port_public_site'])
+	user,group = [public_details[i] for i in ['user','group']]
+	port_site = public_details['port']
+	port_notebook = public_details.get('port_notebook',port_site+1)
+	details = dict(user=user,group=group,port_notebook=port_notebook,port_site=port_site)
 	return details
 
 def start_notebook(name,port,public=False):
 	"""
 	"""
 	#---if public we require an override port so that users are careful
-	if public:
-		port = get_public_ports(name)['port_notebook']
+	if public: port = get_public_ports(name)['port_notebook']
 	if not os.path.isdir(os.path.join('site',name)):
 		raise Exception('cannot find site for %s'%name)
 	#---note that TERM safely closes the notbook server
@@ -512,10 +553,16 @@ def start_notebook(name,port,public=False):
 	#---! jupyter doesn't recommend allowing root but we do so here so you can call
 	#---! `sudo make run <name> public` which prevents us from having to add sudo ourselves
 	if not public:
-		cmd = 'jupyter notebook --allow-root --no-browser --port %d'%port
-	else: cmd = ('env/envs/py2/bin/jupyter-notebook --allow-root --ip="*" --port=%d --no-browser'%(port))
+		cmd = 'jupyter notebook --no-browser --port %d --port-retries=0'%port
+	#---note that without zeroing port-retries, jupyter just tries random ports nearby (which is bad)
+	else: 
+		import getpass
+		cmd = ('env/envs/py2/bin/jupyter-notebook --allow-root '+
+			'--user=%s --port-retries=0 '%getpass.getuser()+
+			'--port=%d --no-browser'%(port))
 	backrun(cmd=cmd,log=log,stopper=lock,killsig='TERM',
 		scripted=False,kill_switch_coda='rm %s'%lock,sudo=public)
+	if public: chown_user(log)
 	return lock,log
 
 def run(name,public=False):
@@ -535,11 +582,22 @@ def run(name,public=False):
 	#---! do we need to have an exception on notebook failure?
 	start_notebook(name,nb_port,public=public)
 
+def shutdown_stop_locked(name):
+	"""
+	"""
+	try: stop_locked(lock='pid.%s.notebook.lock'%name,log=log_notebook%name)
+	except Exception as e: print('[WARNING] failed to stop notebook. exception: %s'%str(e))
+	try: stop_locked(lock='pid.%s.site.lock'%name,log=log_site%name)
+	except Exception as e: print('[WARNING] failed to stop site. exception: %s'%str(e))
+	#---the cluster cleans up after itself so we do not run the cleanup
+	try: stop_locked(lock='pid.%s.cluster.lock'%name,log=log_cluster%name)
+	except Exception as e: print('[WARNING] failed to stop cluster. exception: %s'%str(e))
+
 def shutdown(name=None):
 	"""
 	"""
 	#---maximum number of seconds to wait for all ports to close
-	max_wait,interval = 30.,3.
+	max_wait,interval = 90.,3.
 	if not name:
 		locks = glob.glob('pid.*.lock')
 		names = list(set([re.match('pid\.(.*?)\.(cluster|site|notebook)\.lock',lock).group(1)
@@ -557,18 +615,34 @@ def shutdown(name=None):
 	ports_need_closed = []
 	for name in names:
 		ports_need_closed.append(toc[name].get('port',8000))
-		try: stop_locked(lock='pid.%s.notebook.lock'%name,log=log_notebook%name)
-		except Exception as e: print('[WARNING] failed to stop notebook. exception: %s'%str(e))
-		try: stop_locked(lock='pid.%s.site.lock'%name,log=log_site%name)
-		except Exception as e: print('[WARNING] failed to stop site. exception: %s'%str(e))
-		#---the cluster cleans up after itself so we do not run the cleanup
-		try: stop_locked(lock='pid.%s.cluster.lock'%name,log=log_cluster%name)
-		except Exception as e: print('[WARNING] failed to stop cluster. exception: %s'%str(e))
+		shutdown_stop_locked(name)
+	waits = 0
 	while True:
 		ports_occupied = [p for p in set(ports_need_closed) if not check_port(p,strict=False)]
 		print('[STATUS] ports_occupied: %s'%ports_occupied)
 		if any(ports_occupied) and waits < max_wait:
 			waits += interval
 			print('[STATUS] waiting for ports to close: %s'%ports_occupied)
+			time.sleep(interval)
 		else: break
 
+def sudo_shutdown(name=None):
+	"""
+	Tired of typing the same thing over and over again.
+	"""
+	if not name:
+		su_jobs = []
+		for fn in glob.glob('pid.*.*.lock'):
+			with open(fn) as fp:
+				if re.search('sudo',fp.read()):
+					su_jobs.append(re.match('^pid\.(.*?)\.(.*?)\.lock$',os.path.basename(fn)).group(1))
+		su_jobs = list(set(su_jobs))
+		if su_jobs: raise Exception('sudo_shutdown needs a name. found sudo jobs: %s'%su_jobs)
+		else: raise Exception('no sudo jobs running')
+	#---ensure sudo
+	if not os.geteuid()==0:
+		raise Exception('you must run this shutdown as sudo!')
+	shutdown_stop_locked(name)
+	for key in 'cluster site notebook'.split():
+		try: os.system('sudo bash pid.%s.%s.lock'%(name,key))
+		except: pass
