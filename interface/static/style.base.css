@@ -1,0 +1,53 @@
+/* masonry */
+
+.brick {
+  width: 400px;
+  border-style: solid;
+  border-width: 3px;
+  border-radius: 5px;
+  padding: 10px;
+  margin: 10px;
+  border-color:gray;
+  -webkit-box-sizing: unset;
+  -moz-box-sizing: unset;
+  box-sizing: unset;
+}
+
+.brick-wide2 { width: 850px; }
+
+/*
+.brick .namefocus {
+  text-decoration: underline wavy red;
+  color: red;
+}
+
+.brick .nameunfocus {
+  text-decoration: none;
+}
+*/
+
+/* metadata dropdowns */
+
+.panel-heading .accordion-toggle:after {
+    content: "\25BC";
+    float: right;
+    color: gray;
+}
+
+.panel-heading .accordion-toggle.collapsed:after {
+    content: "\25BA";
+}
+
+.btn-pad { margin: 10px 10px 10px 10px;}
+
+/* override bootstrap pre for syntax highlighting */
+
+.highlight pre {
+  background-color: white;
+  border-color: white;
+}
+
+.linenos .linenodiv pre { 
+  background-color: white; 
+  border-color: white;
+}

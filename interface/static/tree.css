@@ -542,8 +542,9 @@ a.list-group-item-danger.active:focus {
   display: inline-block;
   font-family: 'Glyphicons Halflings';
   font-style: normal;
-  font-weight: normal;
+  font-weight: 800;
   line-height: 1;
+  font-size: 150%;
 
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
