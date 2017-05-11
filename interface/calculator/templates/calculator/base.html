@@ -6,31 +6,32 @@
 	<meta name="description" content=""/>
 	<meta name="keywords" content=""/>
 	<link rel="icon" href="favicon.ico" type="image/x-icon" />
-	<!---! add setting to turn off tiling here-->
-	<script type="text/javascript" src="{% static "jquery-3.2.1.min.js" %}"></script>
-	<script type="text/javascript" src="{% static "masonry.pkgd.min.js" %}"></script>
-	<script type="text/javascript" src="{% static "bootstrap-treeview.js" %}"></script>
-    <script type="text/javascript" src="{% static "bootstrap.min.js" %}"></script>
-    <link href="{% static "bootstrap.css" %}" rel="stylesheet">
-    <link rel="stylesheet" type="text/css" href="{% static "pygments.css" %}">
-    <link href="{% static "style.base.css" %}" rel="stylesheet">
+
+<!--<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/css/bootstrap.min.css" integrity="sha384-rwoIResjU2yc3z8GV/NPeZWAv56rSmLldC3R/AZzGRnGxQQKnKkoFVhFQhNUwEyJ" crossorigin="anonymous">-->
+<link href="{% static "bootstrap.css" %}" rel="stylesheet">
+<link href="{% static "bootstrap.treeview.css" %}" rel="stylesheet">
+<link rel="stylesheet" type="text/css" href="{% static "pygments.css" %}">
+<link href="{% static "style.base.css" %}" rel="stylesheet">
+
 </head>
 <body>
 
 {% block content %}
 {% endblock %}
 
-<script>
+<!--
+<script src="https://code.jquery.com/jquery-3.1.1.slim.min.js" integrity="sha384-A7FZj7v+d/sdmMqp/nOQwliLvUsJfDHW+k9Omg/a/EheAdgtzNs3hpfag6Ed950n" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tether/1.4.0/js/tether.min.js" integrity="sha384-DztdAPBWPRXSA/3eYEEUWrWCy7G5KFbe8fFjk5JAIxUYHKkDx6Qin1DkWx51bBrb" crossorigin="anonymous"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/js/bootstrap.min.js" integrity="sha384-vBWWzlZJ8ea9aCX4pEW3rVHjgjt7zpkNpZk+02D9phzyeVkE+jo0ieGizqPLForn" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/masonry-layout@4/dist/masonry.pkgd.min.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-treeview/1.2.0/bootstrap-treeview.min.js"></script>
+-->
+<script type="text/javascript" src="{% static "jquery-3.2.1.min.js" %}"></script>
+<script type="text/javascript" src="{% static "masonry.pkgd.min.js" %}"></script>
+<script type="text/javascript" src="{% static "bootstrap.min.js" %}"></script>
+<script type="text/javascript" src="{% static "bootstrap-treeview.js" %}"></script>
 
-// populate the trees
-{% for treekey,tree in trees.items %}
-    var meta_toc_json = '{{ tree.data|safe }}';
-    $('#{{ tree.name_tree }}').treeview({
-      data: JSON.parse(meta_toc_json),
-      levels: 1,backColor: '#E6E6E6', selectedBackColor: "#87CEEB",
-      selectedColor: "black",enableLinks: true,showTags: true
-    });
-{% endfor %}
+<script>
 
 // toggle the workspace tiles
 {% for treekey,tree in trees.items %}
@@ -63,6 +64,19 @@ $('#toggle_workspace_off').on('click',function(){
     {% endfor %}
 });
 
+// populate the trees
+{% for treekey,tree in trees.items %}
+    var meta_toc_json = '{{ tree.data|safe }}';
+    $('#{{ tree.name_tree }}').treeview({
+      data: JSON.parse(meta_toc_json),
+      levels: 1,backColor: '#E6E6E6', selectedBackColor: "#87CEEB",
+      selectedColor: "black",enableLinks: true,showTags: true
+    });
+{% endfor %}
+
+// update masonry when interacting with the bricks. this might be inefficient?
+$('.brick').on('click',function(){ $grid.masonry('layout'); });
+
 // on jump click we turn it on if it is off
 {% for treekey,tree in trees.items %}
     $('#jump_{{treekey}}').on('click',function(){
@@ -72,19 +86,19 @@ $('#toggle_workspace_off').on('click',function(){
             // this is a hack because ryan is too lazy to really understand callbacks in template loop ...
             window.setTimeout(function(){ 
                 location.href = "#{{ tree.name}}"; 
-                $('#{{ tree.name }}_tree_brick').children().addClass('namefocus');
+                $('#{{ tree.name }}_tree_brick_title').addClass('namefocus');
                 },2000);
         } else { 
             location.href = "#{{ tree.name}}"; 
             {% for treekey,tree in trees.items %}
-                $('#{{ tree.name }}_tree_brick').find('h2').removeClass('namefocus');
+                $('#{{ tree.name }}_tree_brick_title').removeClass('namefocus');
             {% endfor %}
-            $('#{{ tree.name }}_tree_brick').find('h2').addClass('namefocus');
+            $('#{{ tree.name }}_tree_brick_title').addClass('namefocus');
         }
     });
     $('#top_from_{{ tree.name }}').on('click',function(){
         {% for treekey,tree in trees.items %}
-            $('#{{ tree.name }}_tree_brick').find('h2').removeClass('namefocus');
+            $('#{{ tree.name }}_tree_brick_title').removeClass('namefocus');
         {% endfor %}
     });
 {% endfor %}
@@ -134,6 +148,26 @@ $('#toggle_pictures_off').on('click',function(){
     });
 {% endfor %}
 
+// masonry container
+var $grid = $('#container').masonry({
+    columnWidth: 50,
+    itemSelector: '.brick'
+});
+
+// reset the calculator
+$('#reset_calculator').on('click',function(){
+    window.location = "clear_logging?workspace={{ workspace_visible }}&pictures={{ pictures_visible }}"
+});
+
+// masonry refresh when ready
+$(document).ready(function () {
+    $grid.masonry('layout');
+});
+
+</script>
+
+
+<script>
 // AJAX CONSOLE
 
 function getCookie(name) {
@@ -205,23 +239,7 @@ function doUpdate_queue() {
         $grid.masonry('layout');
     });
 {% endif %}
-
-// masonry container
-var $grid = $('#container').masonry({
-    columnWidth: 50,
-    itemSelector: '.brick'
-});
-
-// reset the calculator
-$('#reset_calculator').on('click',function(){
-    window.location = "clear_logging?workspace={{ workspace_visible }}&pictures={{ pictures_visible }}"
-});
-
-// masonry refresh when ready
-$(document).ready(function () {
-    $grid.masonry('layout');
-});
-
 </script>
+
 
 </body>

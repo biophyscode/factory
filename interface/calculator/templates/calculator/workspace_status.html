@@ -1,21 +1,30 @@
 {% load staticfiles %}
 
-<div class="btn-group btn-group-vertical">
+<div class="btn-group-lg btn-group-vertical">
 <a href="compute?workspace={{ workspace_visible }}&pictures={{ pictures_visible }}" 
 	id="run_compute" class="btn btn-large btn-default">
 <strong><code>compute!</code></strong>
-</a>
+</label>
 <a href="refresh?workspace={{ workspace_visible }}&pictures={{ pictures_visible }}" 
 	id="run_refresh" class="btn btn-large btn-default">
 <strong><code>refresh!</code></strong>
 </a>
 </div>
 
+<div class="btn-group-sm" style="margin: 5px 0 0 0;">
+<label id="toggle_workspace_on" class="btn btn-default">
+show all
+</label>
+<label id="toggle_workspace_off" class="btn btn-default">
+hide all
+</label>
+</div>
+
 <div class="btn-group" data-toggle="buttons" style="margin: 5px 0 0 0;">
 {% for treekey,tree in trees.items %}
-<label id="toggle_label_{{treekey}}" class="btn btn-default active" style="text-align:left;">
-  <input id="toggle_{{treekey}}" checked type="checkbox" autocomplete="off">
-  {{ tree.title }}
+<label id="toggle_label_{{treekey}}" class="btn btn-default btn-outline active" style="text-align:left;">
+<input id="toggle_{{treekey}}" checked type="checkbox" autocomplete="off">
+{{ tree.title }}
 </label> 
 {% endfor %}  
 </div>
@@ -28,20 +37,11 @@
 {% endfor %}  
 </div>
 
-<div class="btn-group" style="margin: 5px 0 0 0;">
-<label id="toggle_workspace_on" class="btn btn-default">
-show all
-</label>
-<label id="toggle_workspace_off" class="btn btn-default">
-hide all
-</label>
-</div>
-
 <h2>workspace status</h2>
 
 <ul style="list-style-type:square;" style="">
-<li style="margin: 10px 0;">last loaded at {{ workspace_timestamp }}</li>
-<li style="margin: 10px 0;">logging state is {{ logging_state }}</li>
+<li style="margin: 10px 0;">last loaded at (UTC) {{ workspace_timestamp }} </li>
+{% if log_status %}<li style="margin: 10px 0;">logging state is {{ log_status }}</li>{% endif %}
 {% if found_meta_changes %}
 <li style="margin: 10px 0;">note that the meta files have changed since the last refresh</li>
 {% else %}
