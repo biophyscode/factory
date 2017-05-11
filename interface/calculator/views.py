@@ -51,7 +51,7 @@ def make_tree_slices(outgoing):
 def make_tree_calculations(outgoing):
 	"""Expose workspace calculations as a tree."""
 	global shared_work
-	calcs_tree_raw = list(make_bootstrap_tree(shared_work.work.calcs,floor=2))
+	calcs_tree_raw = list(make_bootstrap_tree(shared_work.work.calcs,floor=1))
 	for cc,c in enumerate(calcs_tree_raw): calcs_tree_raw[cc]['href'] = 'get_code/%s'%c['text']
 	calcs_tree = json.dumps(calcs_tree_raw)
 	outgoing['trees']['calcs'] = {'title':'calculations',
@@ -60,7 +60,7 @@ def make_tree_calculations(outgoing):
 def make_tree_plots(outgoing):
 	"""Present plots as a tree."""
 	global shared_work
-	plots_tree_raw = list(make_bootstrap_tree(shared_work.work.plots,floor=2))
+	plots_tree_raw = list(make_bootstrap_tree(shared_work.work.plots,floor=1))
 	for cc,c in enumerate(plots_tree_raw): 
 		plots_tree_raw[cc]['href'] = 'get_code/plot-%s'%c['text']
 	plots_tree = json.dumps(plots_tree_raw)
@@ -139,7 +139,9 @@ def index(request,pictures=True,workspace=True):
 		make_tree_slices(outgoing)
 		make_tree_calculations(outgoing)
 		make_tree_plots(outgoing)
-		make_tree_tasks(outgoing)
+		#---! currently testing on actinlink
+		try: make_tree_tasks(outgoing)
+		except: pass
 		make_warn_missings(outgoing)
 		make_tree_meta_files(outgoing)
 		#---END POPULATING "outgoing"
