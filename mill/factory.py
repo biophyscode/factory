@@ -170,7 +170,7 @@ def connect_single(connection_name,**specs):
 	if specs.get('public',None):
 		site_port = specs['public'].get('port',8000)
 		settings_custom['NOTEBOOK_IP'] = specs['public']['notebook_ip']
-		settings_custom['NOTEBOOK_PORT'] = specs['public'].get('port_notebook',site_port+1)
+		settings_custom['NOTEBOOK_PORT'] = specs['public'].get('notebook_port',site_port+1)
 		settings_custom['extra_allowed_hosts'] = list(set(['localhost']+specs['public'].get('hostnames',[])))
 	#---serve locally
 	else:
@@ -280,6 +280,14 @@ def connect_single(connection_name,**specs):
 	print("[STATUS] new project \"%s\" is stored at ./data/%s"%(connection_name,connection_name))
 	print("[STATUS] replace with a symlink if you wish to store the data elsewhere")
 
+	#---now that site is ready we can write credentials
+	if specs.get('public',None):
+		#---write key,value pairs as Basic Auth user/passwords
+		creds = specs['public'].get('credentials',{})
+		if creds: 
+			with open(os.path.join('site',connection_name,connection_name,'wsgi_auth.py'),'w') as fp:
+				fp.write(code_check_passwd%str([(k,v) for k,v in creds.items()]))
+
 	#---set up the calculations directory in omnicalc
 	#---check if the repo pointer in the connection is a valid path
 	new_calcs_repo = not (os.path.isdir(abspath(specs['repo'])) and (
@@ -329,12 +337,6 @@ def connect_single(connection_name,**specs):
 		for filt in calc_meta_filters:
 			#---note that meta_filter is turned into a list in config.py in omnicalc
 			bash('make set meta_filter="%s"'%filt,cwd=specs['calc'])
-
-	#---write key,value pairs as Basic Auth user/passwords
-	creds = specs.get('credentials',{})
-	if creds: 
-		with open(os.path.join('site',connection_name,connection_name,'wsgi_auth.py'),'w') as fp:
-			fp.write(code_check_passwd%str([(k,v) for k,v in creds.items()]))
 
 	#---configure omnicalc 
 	#---note that make set commands can change the configuration without a problem
@@ -533,15 +535,19 @@ def get_public_ports(name):
 		raise Exception('missing keys from connection: %s'%missing_keys)
 	user,group = [public_details[i] for i in ['user','group']]
 	port_site = public_details['port']
-	port_notebook = public_details.get('port_notebook',port_site+1)
-	details = dict(user=user,group=group,port_notebook=port_notebook,port_site=port_site)
+	port_notebook = public_details.get('notebook_port',port_site+1)
+	notebook_ip = public_details.get('notebook_ip','localhost')
+	details = dict(user=user,group=group,port_notebook=port_notebook,
+		port_site=port_site,notebook_ip=notebook_ip)
 	return details
 
 def start_notebook(name,port,public=False):
 	"""
 	"""
 	#---if public we require an override port so that users are careful
-	if public: port = get_public_ports(name)['port_notebook']
+	if public: 
+		public_details = get_public_ports(name)
+		port,notebook_ip = [public_details[i] for i in ['port_notebook','notebook_ip']]
 	if not os.path.isdir(os.path.join('site',name)):
 		raise Exception('cannot find site for %s'%name)
 	#---note that TERM safely closes the notbook server
@@ -559,7 +565,7 @@ def start_notebook(name,port,public=False):
 		import getpass
 		cmd = ('env/envs/py2/bin/jupyter-notebook --allow-root '+
 			'--user=%s --port-retries=0 '%getpass.getuser()+
-			'--port=%d --no-browser'%(port))
+			'--port=%d --no-browser --ip="%s"'%(port,notebook_ip))
 	backrun(cmd=cmd,log=log,stopper=lock,killsig='TERM',
 		scripted=False,kill_switch_coda='rm %s'%lock,sudo=public)
 	if public: chown_user(log)
@@ -610,7 +616,7 @@ def shutdown(name=None):
 			with open(fn) as fp: text = fp.read()
 			if re.search('sudo',text,re.M+re.DOTALL):
 				raise Exception(
-					'found sudo in %s. you must run the lock files manually to shut down'%fn)
+					'found sudo in %s. use `sudo_shutdown`'%fn)
 	toc  = collect_connections(name)
 	ports_need_closed = []
 	for name in names:
