@@ -15,8 +15,7 @@
 
 .brick-wide2 { width: 850px; }
 
-/*
-.brick .namefocus {
+.namefocus {
   text-decoration: underline wavy red;
   color: red;
 }
@@ -24,7 +23,6 @@
 .brick .nameunfocus {
   text-decoration: none;
 }
-*/
 
 /* metadata dropdowns */
 
