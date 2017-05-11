@@ -4,7 +4,7 @@
 All interactions with omnicalc are here.
 """
 
-import os,sys,json,re,subprocess,datetime,glob
+import os,sys,json,re,subprocess,datetime,glob,pprint
 import nbformat as nbf
 from django.conf import settings
 
@@ -227,7 +227,7 @@ class PictureAlbum:
 				lines.append('convert %s -thumbnail 500x500 %s'%(source_fn,thumbnail_fn))
 				#---! should we update here assuming that it is made correctly?
 				self.album['files'][name]['thumb'] = thumbnail_fn 
-		lines.append('echo "THUMBNAILS COMPLETE! HIT REFRESH IF YOU CANNOT SEE THE IMAGES!"')
+		lines.append('echo "[STATUS] THUMBNAILS COMPLETE you may need to wait for them or refresh"')
 		with open(os.path.join(settings.CALC,'script-make-thumbnails.sh'),'w') as fp:
 			fp.write('\n'.join(lines))
 		global logging_fn
