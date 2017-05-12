@@ -200,8 +200,10 @@ def compute(request):
 	global shared_backrun
 	#---dev purposes only: in case you go right to compute
 	if not shared_backrun: shared_backrun = FactoryBackrun()
+	cmd = 'make compute'
 	#---use the backrun instance to run make compute. note that this protects against simultaneous runs
-	shared_backrun.run(cmd='make compute',log='log-compute')
+	print('[STATUS] running `%s`'%cmd)
+	shared_backrun.run(cmd=cmd,log='log-compute')
 	return view_redirector(request)
 
 def logging(request):

@@ -355,6 +355,14 @@ def connect_single(connection_name,**specs):
 		#---write the config
 		with open(config_fn,'w') as fp: 
 			fp.write('#!/usr/bin/env python -B\n'+str(pprint.pformat(config,width=110)))
+	#---add the environment to omnicalc. this allows the publicly-served omnicalc to find the environment 
+	#---...when root is running it. it also means users do not have to remember to source the environment 
+	#---...when they are doing calculations "manually" from their project's omnicalc folder. note that there
+	#---...is a slowdown if you are used to always sourcing the environment yourself, but you could just as 
+	#---...easily remove the flag from the config.py to recover the original behavior
+	env_path = "%s %s"%(os.path.join(os.path.abspath(config['activate_env'].split()[0])),
+		config['activate_env'].split()[1])
+	bash('make set activate_env="%s"'%env_path,cwd=specs['calc'])
 
 #---! later you need to add omnicalc functionality
 if False: get_omni_dataspots = """if os.path.isfile(CALCSPOT+'/paths.py'):
@@ -507,7 +515,9 @@ def daemon_ender(fn,cleanup=True):
 	try: bash('bash %s'%fn)
 	except Exception as e: 
 		print('[WARNING] failed to shutdown lock file %s with exception:\n%s'%(fn,e))
-	if cleanup: os.remove(fn)
+	if cleanup: 
+		print('[STATUS] daemon successfully shutdown via %s'%fn)
+		os.remove(fn)
 
 def stop_locked(lock,log,cleanup=False):
 	"""

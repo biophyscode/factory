@@ -137,7 +137,11 @@ class FactoryBackrun:
 
 	def read_log(self):
 		"""Read the log file."""
-		with open(self.log_fn_abs) as fp: self.last_log_text = fp.read()
+		try: 
+			with open(self.log_fn_abs) as fp: 
+				self.last_log_text = fp.read()
+		#---if log is missing we must continue with out jamming everything up
+		except: pass
 
 	def logstate(self):
 		"""
