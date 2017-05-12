@@ -4,7 +4,7 @@
 Prepare or check that the environment is ready for the factory.
 """
 
-__all__ = ['nuke','renew','setup','init']
+__all__ = ['nuke','renew','setup','init','help']
 
 import os,sys,time,re,shutil,textwrap,glob
 from config import read_config,write_config,is_terminal_command,bash,abspath
@@ -256,22 +256,27 @@ def nuke(sure=False,env=True):
 		#---...for a mature database, but nuking typically removes the db hence the name
 		for fn in glob.glob(os.path.join('interface','simulator','migrations','*')): os.remove(fn)
 
+def help():
+	"""A better name for "renew"."""
+	renew()
+
 def renew():
 	"""
 	List useful strings of commands for testing the factory environments.
 	"""
-	print('\n'+fab('ENVIRONMENT HINTS','cyan_black'))
-	cmds = {
-		'linux + anaconda':[
+	print('\n'+fab('HOW TO SETUP/RENEW YOUR ENVIRONMENT','cyan_black'))
+	cmds = [
+		('set up anaconda on linux (you must download Miniconda first)',[
 			'make nuke sure',
 			'make set species anaconda',
 			'make set anaconda_location=~/libs/Miniconda3-latest-Linux-x86_64.sh',
 			'make set automacs="http://github.com/bradleyrp/automacs"',
 			'make set omnicalc="http://github.com/bradleyrp/omnicalc"',
-			'make setup',
+			'make setup']),
+		('starting a project from scratch, using a template',[
 			'make template template_demo',
-			'make connect'],
-		'linux + anaconda + preserve environment':[
+			'make connect demo']),
+		('start from scratch but do not reinstall anaconda',[
 			'make nuke sure env=False',
 			'make set species anaconda',
 			'make set anaconda_location=~/libs/Miniconda3-latest-Linux-x86_64.sh',
@@ -279,16 +284,16 @@ def renew():
 			'make set omnicalc="http://github.com/bradleyrp/omnicalc"',
 			'make set setup_stamp=$(date +%Y%m%d%H%M%s)',
 			'make setup',
-			'make connect'],
-		'OSX + anaconda':[
+			'make connect']),
+		('setup anaconda on OSX',[
 			'make nuke sure',
 			'make set species anaconda_osx',
 			'make set anaconda_location=~/libs/Miniconda3-latest-MacOSX-x86_64.sh',
 			'make set automacs="http://github.com/bradleyrp/automacs"',
 			'make set omnicalc="http://github.com/bradleyrp/omnicalc"',
 			'make template template_demo',
-			'make connect']}
-	for k,v in cmds.items():
+			'make connect'])]
+	for k,v in cmds:
 		print('\n[NOTE] to install %s, use:\n\n%s\n'%(k,' && '.join(v)))
 
 def init(refresh=False):
