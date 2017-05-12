@@ -349,20 +349,21 @@ def connect_single(connection_name,**specs):
 	#---write spots to config
 	if 'spots' in specs:
 		config_fn = os.path.join(specs['calc'],'config.py')
-		with open(config_fn) as fp: config = eval(fp.read())
-		config['spots'] = specs['spots']
+		with open(config_fn) as fp: config_omni = eval(fp.read())
+		config_omni['spots'] = specs['spots']
 		import pprint
 		#---write the config
 		with open(config_fn,'w') as fp: 
-			fp.write('#!/usr/bin/env python -B\n'+str(pprint.pformat(config,width=110)))
+			fp.write('#!/usr/bin/env python -B\n'+str(pprint.pformat(config_omni,width=110)))
 	#---add the environment to omnicalc. this allows the publicly-served omnicalc to find the environment 
 	#---...when root is running it. it also means users do not have to remember to source the environment 
 	#---...when they are doing calculations "manually" from their project's omnicalc folder. note that there
 	#---...is a slowdown if you are used to always sourcing the environment yourself, but you could just as 
 	#---...easily remove the flag from the config.py to recover the original behavior
-	env_path = "%s %s"%(os.path.join(os.path.abspath(config['activate_env'].split()[0])),
-		config['activate_env'].split()[1])
-	bash('make set activate_env="%s"'%env_path,cwd=specs['calc'])
+	if 'activate_env' in config:
+		env_path = "%s %s"%(os.path.join(os.path.abspath(config['activate_env'].split()[0])),
+			config['activate_env'].split()[1])
+		bash('make set activate_env="%s"'%env_path,cwd=specs['calc'])
 
 #---! later you need to add omnicalc functionality
 if False: get_omni_dataspots = """if os.path.isfile(CALCSPOT+'/paths.py'):
