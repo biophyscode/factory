@@ -9,7 +9,7 @@ from makeface import abspath
 from datapack import asciitree
 from cluster import backrun
 
-__all__ = ['connect','template','connect','run','shutdown','sudo_shutdown']
+__all__ = ['connect','template','connect','run','shutdown']
 
 from setup import FactoryEnv
 
@@ -559,6 +559,10 @@ def start_notebook(name,port,public=False):
 	if public: 
 		public_details = get_public_ports(name)
 		port,notebook_ip = [public_details[i] for i in ['port_notebook','notebook_ip']]
+		#---! low ports are on. to turn them off remove False below and 
+		if port<=1024: raise Exception('cannot use port %d for this project. '%port+
+			'even public projects need high notebook ports for security reasons. '+
+			'you will need to run `make connect <name> public` after you fix the ports')
 	if not os.path.isdir(os.path.join('site',name)):
 		raise Exception('cannot find site for %s'%name)
 	#---note that TERM safely closes the notbook server
@@ -573,10 +577,12 @@ def start_notebook(name,port,public=False):
 		cmd = 'jupyter notebook --no-browser --port %d --port-retries=0'%port
 	#---note that without zeroing port-retries, jupyter just tries random ports nearby (which is bad)
 	else: 
-		import getpass
-		cmd = ('env/envs/py2/bin/jupyter-notebook --allow-root '+
-			'--user=%s --port-retries=0 '%getpass.getuser()+
-			'--port=%d --no-browser --ip="%s"'%(port,notebook_ip))
+		username = public_details['user']
+		cmd = ('sudo -i -u %s %s '%(
+			username,os.path.join(os.getcwd(),'env/envs/py2/bin/jupyter-notebook'))+
+			'--user=%s --port-retries=0 '%username+
+			'--port=%d --no-browser --ip="%s" --notebook-dir="%s"'%(port,notebook_ip,
+				os.path.join(os.getcwd(),'calc',name)))
 	backrun(cmd=cmd,log=log,stopper=lock,killsig='TERM',
 		scripted=False,kill_switch_coda='rm %s'%lock,sudo=public)
 	if public: chown_user(log)
@@ -610,9 +616,12 @@ def shutdown_stop_locked(name):
 	try: stop_locked(lock='pid.%s.cluster.lock'%name,log=log_cluster%name)
 	except Exception as e: print('[WARNING] failed to stop cluster. exception: %s'%str(e))
 
-def shutdown(name=None):
+def shutdown(name=None,public=False):
 	"""
 	"""
+	if public: 
+		shutdown_public(name=name)
+		return
 	#---maximum number of seconds to wait for all ports to close
 	max_wait,interval = 90.,3.
 	if not name:
@@ -627,7 +636,7 @@ def shutdown(name=None):
 			with open(fn) as fp: text = fp.read()
 			if re.search('sudo',text,re.M+re.DOTALL):
 				raise Exception(
-					'found sudo in %s. use `sudo_shutdown`'%fn)
+					'found sudo in %s. use `shutdown <name> public`'%fn)
 	toc  = collect_connections(name)
 	ports_need_closed = []
 	for name in names:
@@ -643,7 +652,7 @@ def shutdown(name=None):
 			time.sleep(interval)
 		else: break
 
-def sudo_shutdown(name=None):
+def shutdown_public(name=None):
 	"""
 	Tired of typing the same thing over and over again.
 	"""
@@ -654,12 +663,9 @@ def sudo_shutdown(name=None):
 				if re.search('sudo',fp.read()):
 					su_jobs.append(re.match('^pid\.(.*?)\.(.*?)\.lock$',os.path.basename(fn)).group(1))
 		su_jobs = list(set(su_jobs))
-		if su_jobs: raise Exception('sudo_shutdown needs a name. found sudo jobs: %s'%su_jobs)
+		if su_jobs: raise Exception('`make shutdown <name> public` needs a name. found publics: %s'%su_jobs)
 		else: raise Exception('no sudo jobs running')
 	#---ensure sudo
 	if not os.geteuid()==0:
-		raise Exception('you must run this shutdown as sudo!')
+		raise Exception('you must run `shutdown <name> public` as sudo!')
 	shutdown_stop_locked(name)
-	for key in 'cluster site notebook'.split():
-		try: os.system('sudo bash pid.%s.%s.lock'%(name,key))
-		except: pass
