@@ -23,7 +23,10 @@ import pwd,grp
 username = pwd.getpwuid(os.getuid())[0]
 uid = pwd.getpwnam(username).pw_uid
 #---! dangerous if the user is not in
-gid = grp.getgrnam('users').gr_gid
+try: gid = grp.getgrnam('users').gr_gid
+except: 
+	try: gid = grp.getgrnam('everyone').gr_gid
+	except: raise Exception('cannot get the group')
 
 ###---CONNECT PROCEDURE PORTED FROM original FACTORY
 
@@ -114,7 +117,7 @@ def connect_single(connection_name,**specs):
 	mkdir_or_report('site')
 	#---the site is equivalent to a django project
 	#---the site draws on either prepackaged apps in the pack folder or the in-development versions in dev
-	#---since the site has no additional data except taht specified in connect.yaml, we can always remake it
+	#---since the site has no additional data except that specified in connect.yaml, we can always remake it
 	if os.path.isdir('site/'+connection_name):
 		print("[STATUS] removing the site for \"%s\" to remake it"%connection_name)
 		shutil.rmtree('site/'+connection_name)

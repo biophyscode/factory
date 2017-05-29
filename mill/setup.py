@@ -43,7 +43,7 @@ class FactoryEnv:
 			'use_python2':True},
 		#---need python2 vs 3
 		'anaconda_osx':{
-			'reqs_conda':['mill/requirements_anaconda_conda_osx.txt'],
+			'reqs_conda':['mill/requirements_anaconda_conda.yaml'],
 			'reqs_pip':['mill/requirements_anaconda_pip_osx.txt'],
 			'setup_kickstart':'setup_anaconda',
 			'setup_refresh':'setup_anaconda_refresh',
@@ -291,6 +291,7 @@ def renew():
 			'make set anaconda_location=~/libs/Miniconda3-latest-MacOSX-x86_64.sh',
 			'make set automacs="http://github.com/bradleyrp/automacs"',
 			'make set omnicalc="http://github.com/bradleyrp/omnicalc"',
+			'make setup',
 			'make template template_demo',
 			'make connect'])]
 	for k,v in cmds:
