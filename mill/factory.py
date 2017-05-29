@@ -588,7 +588,7 @@ def start_notebook(name,port,public=False,sudo=False):
 		if 'XDG_RUNTIME_DIR' in os.environ: del os.environ['XDG_RUNTIME_DIR']
 		cmd = (('sudo -i -u %s '%username if sudo else '')+'%s '%(
 			os.path.join(os.getcwd(),'env/envs/py2/bin/jupyter-notebook'))+
-			('--user=%s '%susername if sudo else ' ')+'--port-retries=0 '+
+			('--user=%s '%username if sudo else ' ')+'--port-retries=0 '+
 			'--port=%d --no-browser --ip="%s" --notebook-dir="%s"'%(port,notebook_ip,
 				os.path.join(os.getcwd(),'calc',name)))
 	backrun(cmd=cmd,log=log,stopper=lock,killsig='TERM',
