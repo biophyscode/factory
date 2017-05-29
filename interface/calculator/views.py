@@ -24,7 +24,9 @@ def make_tree_postdat(outgoing):
 	"""Present post-processing data as a tree for the index."""
 	global shared_work
 	#---collect posts by basename, excluding the numbered part of the filenames
-	posts = shared_work.work.postdat.posts()
+	try: posts = shared_work.work.postdat.posts()
+	except:
+		return HttpResponse(str(shared_work))
 	base_names = sorted(set(map(lambda x:re.match('^(.*?)\.n',x).group(1),posts.keys())))
 	short_names = sorted(set([v.specs['slice']['short_name'] for k,v in posts.items()]))
 	posts_restruct = {}
@@ -45,13 +47,16 @@ def make_tree_slices(outgoing):
 	global shared_work
 	if shared_work.work.slices: slices_tree = json.dumps(
 		list(make_bootstrap_tree(shared_work.work.slices,floor=3)))
+	else: slices_tree = json.dumps({})
 	outgoing['trees']['slices'] = {'title':'slices',
 		'name':'slices','name_tree':'slices_tree','data':slices_tree}
 
 def make_tree_calculations(outgoing):
 	"""Expose workspace calculations as a tree."""
 	global shared_work
-	calcs_tree_raw = list(make_bootstrap_tree(shared_work.work.calcs,floor=1))
+	if shared_work.work.calcs:
+		calcs_tree_raw = list(make_bootstrap_tree(shared_work.work.calcs,floor=1))
+	else: calcs_tree_raw = []
 	for cc,c in enumerate(calcs_tree_raw): calcs_tree_raw[cc]['href'] = 'get_code/%s'%c['text']
 	calcs_tree = json.dumps(calcs_tree_raw)
 	outgoing['trees']['calcs'] = {'title':'calculations',
@@ -93,8 +98,9 @@ def make_tree_meta_files(outgoing):
 	meta_files_raw = list(make_bootstrap_tree(meta_files_rel,floor=1))
 	calc_rel_dn = os.path.relpath(settings.CALC,os.getcwd())
 	for cc,c in enumerate(meta_files_raw):
-		meta_files_raw[cc]['href'] = 'http://%s:%s/'%(settings.NOTEBOOK_IP,settings.NOTEBOOK_PORT)+'/'.join([
-			'edit',calc_rel_dn,meta_files_rel[c['text']]])
+		meta_files_raw[cc]['href'] = 'http://%s:%s/%s?token=%s'%(
+			settings.NOTEBOOK_IP,settings.NOTEBOOK_PORT,'/'.join([
+			'edit',calc_rel_dn,meta_files_rel[c['text']]]),notebook_token)
 	meta_files_tree = json.dumps(meta_files_raw)
 	outgoing['trees']['meta_files'] = {'title':'meta files',
 		'name':'meta_files','name_tree':'meta_files_tree','data':meta_files_tree}

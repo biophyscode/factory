@@ -11,6 +11,7 @@
 <div class="brick brick-wide2">
 <h1>simulation: {{ sim.name }}</h1>
 {% if job_status %}job status: <strong>{{ job_status }}</strong>{% endif %}
+{% ifequal job_status "waiting" %}<br>when the job starts, refreshing this page will turn on the monitor{% endifequal %}
 </div>
 
 {% if logging %}
