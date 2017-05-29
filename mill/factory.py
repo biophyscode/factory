@@ -387,21 +387,22 @@ def template(template=None,name=None):
 		templates = {}
 		execfile(os.path.join(os.path.dirname(__file__),template_source),templates)
 		for key in [i for i in templates if not re.match('^template_',i)]: templates.pop(key)
-		asciitree({'templates':templates.keys()})
+		asciitree({'templates':[re.match('^template_(.+)$',k).group(1) for k in templates.keys()]})
 	else: raise Exception('dev')
 	#---if the user requests a template, write it for them
 	if not template and not name: print('[NOTE] rerun with e.g. '+
 		'`make template <template_name> <connection_file>` to make a new connection. '+
 		'you can omit the connection file name.')
 	elif name and not template: raise Exception('you must supply a template_name')
-	elif template not in templates: raise Exception('cannot find template "%s"'%template)
+	elif template not in templates and 'template_%s'%template not in templates: 
+		raise Exception('cannot find template "%s"'%template)
 	elif not name and template: name = template+'.yaml'
 	#---write the template
 	if template:
 		fn = os.path.join('connections',name)
 		if not re.match('^.+\.yaml$',fn): fn = fn+'.yaml'
 		with open(fn,'w') as fp:
-			fp.write(templates[template])
+			fp.write(templates.get(template,templates['template_%s'%template]))
 		print('[NOTE] wrote a new template to %s'%fn)
 
 def mkdir_or_report(dn):
@@ -607,6 +608,8 @@ def run(name,public=False):
 		raise Exception('failed to start the cluster so we shut down the site. exception: %s'%str(e)) 
 	#---! do we need to have an exception on notebook failure?
 	start_notebook(name,nb_port,public=public)
+	#---report the status to the user
+	
 
 def shutdown_stop_locked(name):
 	"""

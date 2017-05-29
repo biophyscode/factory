@@ -13,8 +13,8 @@ project:
   calc: calc/PROJECT_NAME
   repo: calc/PROJECT_NAME/calcs
   database: data/PROJECT_NAME/db.factory.sqlite3
-  omnicalc: https://github.com/biophyscode/omnicalc
-  automacs: https://github.com/biophyscode/automacs
+  omnicalc: https://github.com/bradleyrp/omnicalc
+  automacs: https://github.com/bradleyrp/automacs
   # copy preloaded scripts from deploy/stable
   startup: true
   # locate a gromacs.py to use current machine gromacs configuration (can be null)
@@ -24,6 +24,7 @@ project:
   workspace_spot: data/PROJECT_NAME/workspace 
   # new simulations and automacs documentation reside in the simulation spot
   simulation_spot: data/PROJECT_NAME/sims
+  # set a custom gromacs_config (~/.automacs.py) via: `gromacs_config: gromacs_config.py`
   # import previous data or point omnicalc to new simulations, each of which is called a "spot"
   spots:
     # colloquial name for the default "spot" for new simulations given as simulation_spot above
