@@ -9,7 +9,7 @@ from makeface import abspath
 from datapack import asciitree
 from cluster import backrun
 
-__all__ = ['connect','template','connect','run','shutdown','sudo_shutdown']
+__all__ = ['connect','template','connect','run','shutdown']
 
 from setup import FactoryEnv
 
@@ -227,10 +227,16 @@ def connect_single(connection_name,**specs):
 	os.symlink(os.path.join(os.getcwd(),django_source,'static'),
 		os.path.join('site',connection_name,'static'))
 
+	#---if the user specifies a database location we override it here
+	if specs.get('database',None):
+		database_path_change = "\nDATABASES['default']['NAME'] = '%s'"%(
+			os.path.abspath(specs['database']))
+	else: database_path_change = ''
+
 	#---all settings are handled by appending to the django-generated default
 	#---we also add changes to django-default paths
 	with open(os.path.join('site',connection_name,connection_name,'settings.py'),'a') as fp:
-		fp.write(project_settings_addendum)
+		fp.write(project_settings_addendum+database_path_change)
 		if specs.get('development',False):
 			fp.write('#---use the development copy of the code\n'+
 				'import sys;sys.path.insert(0,os.path.join(os.getcwd(),"%s"))'%django_source) 
@@ -463,7 +469,7 @@ def check_port(port,strict=False):
 	s.close()
 	return free
 
-def start_site(name,port,public=False):
+def start_site(name,port,public=False,sudo=False):
 	"""
 	"""
 	#---start django
@@ -483,18 +489,18 @@ def start_site(name,port,public=False):
 		cmd = 'python %s runserver 0.0.0.0:%s'%(os.path.join(os.getcwd(),site_dn,'manage.py'),port)
 	else:
 		#---! hard-coded development static paths
-		cmd = ('sudo env/envs/py2/bin/mod_wsgi-express start-server '+
+		cmd = ('%senv/envs/py2/bin/mod_wsgi-express start-server '%('sudo ' if sudo else '')+
 			'--port %d site/%s/%s/wsgi.py --user %s --group %s '+
 			'--python-path site/%s --url-alias /static interface/static')%(
 			port,name,name,user,group,name)
 		auth_fn = os.path.join('site',name,name,'wsgi_auth.py')
 		if os.path.isfile(auth_fn): cmd += ' --auth-user-script=%s'%auth_fn
-	backrun(cmd=cmd,log=log,stopper=lock,killsig='KILL',sudo=public,
+	backrun(cmd=cmd,log=log,stopper=lock,killsig='KILL',sudo=sudo,
 		scripted=False,kill_switch_coda='rm %s'%lock)
 	if public: chown_user(log)
 	return lock,log
 
-def start_cluster(name,public=False):
+def start_cluster(name,public=False,sudo=False):
 	"""
 	"""
 	#---start the cluster. argument is the location of the kill switch for clean shutdown
@@ -505,8 +511,8 @@ def start_cluster(name,public=False):
 	#---cluster never requires sudo but we require sudo to run publicly so we pass it along
 	#---! run the cluster as the user when running public?
 	backrun(cmd='python -u mill/cluster_start.py %s'%lock,
-		log=log,stopper=lock,killsig='INT',scripted=False,sudo=public)
-	if public: chown_user(log)
+		log=log,stopper=lock,killsig='INT',scripted=False,sudo=sudo)
+	if sudo: chown_user(log)
 	return lock,log
 
 def daemon_ender(fn,cleanup=True):
@@ -534,8 +540,8 @@ def stop_locked(lock,log,cleanup=False):
 def get_public_ports(name):
 	"""Get public ports and details before serving."""
 	#---ensure sudo
-	if not os.geteuid()==0:
-		raise Exception('you must run public as sudo!')
+	#if not os.geteuid()==0:
+	#	raise Exception('you must run public as sudo!')
 	#---collect details from the connection
 	reqs = 'port user group hostnames notebook_ip'.split()
 	toc  = collect_connections(name)
@@ -552,13 +558,17 @@ def get_public_ports(name):
 		port_site=port_site,notebook_ip=notebook_ip)
 	return details
 
-def start_notebook(name,port,public=False):
+def start_notebook(name,port,public=False,sudo=False):
 	"""
 	"""
 	#---if public we require an override port so that users are careful
 	if public: 
 		public_details = get_public_ports(name)
 		port,notebook_ip = [public_details[i] for i in ['port_notebook','notebook_ip']]
+		#---! low ports are on. to turn them off remove False below and 
+		if port<=1024: raise Exception('cannot use port %d for this project. '%port+
+			'even public projects need high notebook ports for security reasons. '+
+			'you will need to run `make connect <name> public` after you fix the ports')
 	if not os.path.isdir(os.path.join('site',name)):
 		raise Exception('cannot find site for %s'%name)
 	#---note that TERM safely closes the notbook server
@@ -573,13 +583,17 @@ def start_notebook(name,port,public=False):
 		cmd = 'jupyter notebook --no-browser --port %d --port-retries=0'%port
 	#---note that without zeroing port-retries, jupyter just tries random ports nearby (which is bad)
 	else: 
-		import getpass
-		cmd = ('env/envs/py2/bin/jupyter-notebook --allow-root '+
-			'--user=%s --port-retries=0 '%getpass.getuser()+
-			'--port=%d --no-browser --ip="%s"'%(port,notebook_ip))
+		username = public_details['user']
+		#---! unsetting this variable because some crazy run/user error
+		if 'XDG_RUNTIME_DIR' in os.environ: del os.environ['XDG_RUNTIME_DIR']
+		cmd = (('sudo -i -u %s '%username if sudo else '')+'%s '%(
+			os.path.join(os.getcwd(),'env/envs/py2/bin/jupyter-notebook'))+
+			('--user=%s '%susername if sudo else ' ')+'--port-retries=0 '+
+			'--port=%d --no-browser --ip="%s" --notebook-dir="%s"'%(port,notebook_ip,
+				os.path.join(os.getcwd(),'calc',name)))
 	backrun(cmd=cmd,log=log,stopper=lock,killsig='TERM',
-		scripted=False,kill_switch_coda='rm %s'%lock,sudo=public)
-	if public: chown_user(log)
+		scripted=False,kill_switch_coda='rm %s'%lock,sudo=sudo)
+	if sudo: chown_user(log)
 	return lock,log
 
 def run(name,public=False):
@@ -610,9 +624,12 @@ def shutdown_stop_locked(name):
 	try: stop_locked(lock='pid.%s.cluster.lock'%name,log=log_cluster%name)
 	except Exception as e: print('[WARNING] failed to stop cluster. exception: %s'%str(e))
 
-def shutdown(name=None):
+def shutdown(name=None,public=False):
 	"""
 	"""
+	if public: 
+		shutdown_public(name=name)
+		return
 	#---maximum number of seconds to wait for all ports to close
 	max_wait,interval = 90.,3.
 	if not name:
@@ -627,7 +644,7 @@ def shutdown(name=None):
 			with open(fn) as fp: text = fp.read()
 			if re.search('sudo',text,re.M+re.DOTALL):
 				raise Exception(
-					'found sudo in %s. use `sudo_shutdown`'%fn)
+					'found sudo in %s. use `shutdown <name> public`'%fn)
 	toc  = collect_connections(name)
 	ports_need_closed = []
 	for name in names:
@@ -643,7 +660,7 @@ def shutdown(name=None):
 			time.sleep(interval)
 		else: break
 
-def sudo_shutdown(name=None):
+def shutdown_public(name=None):
 	"""
 	Tired of typing the same thing over and over again.
 	"""
@@ -654,12 +671,9 @@ def sudo_shutdown(name=None):
 				if re.search('sudo',fp.read()):
 					su_jobs.append(re.match('^pid\.(.*?)\.(.*?)\.lock$',os.path.basename(fn)).group(1))
 		su_jobs = list(set(su_jobs))
-		if su_jobs: raise Exception('sudo_shutdown needs a name. found sudo jobs: %s'%su_jobs)
+		if su_jobs: raise Exception('`make shutdown <name> public` needs a name. found publics: %s'%su_jobs)
 		else: raise Exception('no sudo jobs running')
 	#---ensure sudo
-	if not os.geteuid()==0:
-		raise Exception('you must run this shutdown as sudo!')
+	#if not os.geteuid()==0:
+	#	raise Exception('you must run `shutdown <name> public` as sudo!')
 	shutdown_stop_locked(name)
-	for key in 'cluster site notebook'.split():
-		try: os.system('sudo bash pid.%s.%s.lock'%(name,key))
-		except: pass
