@@ -12,3 +12,4 @@ env/
 logs/
 pack/
 site/
+cluster/
