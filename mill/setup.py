@@ -266,16 +266,13 @@ def renew():
 	"""
 	print('\n'+fab('HOW TO SETUP/RENEW YOUR ENVIRONMENT','cyan_black'))
 	cmds = [
-		('set up anaconda on linux (you must download Miniconda first)',[
+		('set up anaconda on linux/OSX (download the appropriate Miniconda to ~/libs first, or alter the path below)',[
 			'make nuke sure',
 			'make set species anaconda',
 			'make set anaconda_location=~/libs/Miniconda3-latest-Linux-x86_64.sh',
 			'make set automacs="http://github.com/bradleyrp/automacs"',
 			'make set omnicalc="http://github.com/bradleyrp/omnicalc"',
 			'make setup']),
-		('starting a project from scratch, using a template',[
-			'make template template_demo',
-			'make connect demo']),
 		('start from scratch but do not reinstall anaconda',[
 			'make nuke sure env=False',
 			'make set species anaconda',
@@ -283,19 +280,11 @@ def renew():
 			'make set automacs="http://github.com/bradleyrp/automacs"',
 			'make set omnicalc="http://github.com/bradleyrp/omnicalc"',
 			'make set setup_stamp=$(date +%Y%m%d%H%M%s)',
-			'make setup',
-			'make connect']),
-		('setup anaconda on OSX',[
-			'make nuke sure',
-			'make set species anaconda_osx',
-			'make set anaconda_location=~/libs/Miniconda3-latest-MacOSX-x86_64.sh',
-			'make set automacs="http://github.com/bradleyrp/automacs"',
-			'make set omnicalc="http://github.com/bradleyrp/omnicalc"',
-			'make setup',
-			'make template template_demo',
-			'make connect'])]
-	for k,v in cmds:
-		print('\n[NOTE] to install %s, use:\n\n%s\n'%(k,' && '.join(v)))
+			'make setup',]),
+		('use a template to make a new project/connection',[
+			'make template demo project_name=demo connection_file=demo.yaml',
+			'make connect demo']),]
+	for k,v in cmds: print('\n[NOTE] to install %s, use:\n\n%s\n'%(k,' && '.join(v)))
 
 def init(refresh=False):
 	"""

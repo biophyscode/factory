@@ -383,9 +383,11 @@ if False: get_omni_dataspots = """if os.path.isfile(CALCSPOT+'/paths.py'):
 
 ###---UTILITY FUNCTIONS
 
-def template(template=None,name=None):
+def template(template=None,connection_file=None,project_name=None):
 	"""
 	List templates and possibly create one for the user.
+	Use the connection_file and project_name flags to set these options.
+	Otherwise, only the template name is required.
 	"""
 	if not os.path.isdir('connections'): os.mkdir('connections')
 	template_source = 'connection_templates.py'
@@ -396,19 +398,22 @@ def template(template=None,name=None):
 		asciitree({'templates':[re.match('^template_(.+)$',k).group(1) for k in templates.keys()]})
 	else: raise Exception('dev')
 	#---if the user requests a template, write it for them
-	if not template and not name: print('[NOTE] rerun with e.g. '+
-		'`make template <template_name> <connection_file>` to make a new connection. '+
-		'you can omit the connection file name.')
-	elif name and not template: raise Exception('you must supply a template_name')
+	if not template and not connection_file: print('[NOTE] rerun with e.g. '+
+		'`make template <template_name>` to make a new connection with the same name as the template. '+
+		'you can also supply keyword arguments for the connection_file and project name')
+	elif connection_file and not template: raise Exception('you must supply a template_name')
 	elif template not in templates and 'template_%s'%template not in templates: 
 		raise Exception('cannot find template "%s"'%template)
-	elif not name and template: name = template+'.yaml'
+	elif not connection_file and template: connection_file = template+'.yaml'
 	#---write the template
 	if template:
-		fn = os.path.join('connections',name)
+		fn = os.path.join('connections',connection_file)
 		if not re.match('^.+\.yaml$',fn): fn = fn+'.yaml'
 		with open(fn,'w') as fp:
-			fp.write(templates.get(template,templates['template_%s'%template]))
+			template_text = templates.get(template,templates['template_%s'%template])
+			if project_name: 
+				template_text = re.sub('^([^\s]+):','%s:'%project_name,template_text,flags=re.M)
+			fp.write(template_text)
 		print('[NOTE] wrote a new template to %s'%fn)
 
 def mkdir_or_report(dn):
@@ -479,7 +484,7 @@ def start_site(name,port,public=False,sudo=False):
 	#---start django
 	site_dn = os.path.join('site',name)
 	if not os.path.isdir(site_dn): 
-		raise Exception('missing site/%s. did you forget to connect it?'%name)
+		raise Exception('missing project named "%s". did you forget to connect it?'%name)
 	#---if public we require an override port so that users are careful
 	if public:
 		public_details = get_public_ports(name)
@@ -617,7 +622,11 @@ def run(name,public=False):
 	#---! do we need to have an exception on notebook failure?
 	start_notebook(name,nb_port,public=public)
 	#---report the status to the user
-	
+	url = 'http://%s:%d'%('localhost',site_port)
+	if public:
+		try: url = 'http://%s:%d'%(toc[name]['public']['hostnames'][0],toc[name]['public']['port'])
+		except: pass
+	print('[STATUS] serving from:  %s'%url)
 
 def shutdown_stop_locked(name):
 	"""

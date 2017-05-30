@@ -69,6 +69,13 @@ demo:
   post_data_spot: data/PROJECT_NAME/post
   post_plot_spot: data/PROJECT_NAME/plot
   simulation_spot: data/PROJECT_NAME/sims
-  # set a custom gromacs_config (~/.automacs.py) via: `gromacs_config: gromacs_config.py`
+  public:
+    port: 2000
+    notebook_port: 2001
+    notebook_ip: 'green.seas.upenn.edu'
+    hostnames: ['green.seas.upenn.edu']
+    user: ryb
+    group: users
+    credentials: {'talking':'heads'}
 
 """
