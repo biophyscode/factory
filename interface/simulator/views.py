@@ -46,6 +46,7 @@ def index(request):
 		for stat_type in ['running','waiting','finished']])
 	outgoing.update(cluster_stat=cluster_stat)
 	statuses_by_sim = dict([(k,v['stat']) for k,v in statuses.items()])
+	print(statuses_by_sim)
 	outgoing.update(status_by_sim=statuses_by_sim)
 	#---hide the cluster console unless some jobs are running
 	if any(v=='running' for v in statuses_by_sim.values()): outgoing.update(cluster_running=True)
@@ -87,7 +88,7 @@ def job_status_infer(sim=None):
 	statuses = {}
 	for sim in sims_submitted:
 		if not re.match(regex_submitted,sim.status): continue
-		job_status = '???'
+		job_status = 'idle'
 		#---if the job is submitted we have to run this refresh block to infer its status
 		#---! is inference the best option here, or should we track the jobs in the database?
 		#---pop off the submission path
