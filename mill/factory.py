@@ -77,6 +77,7 @@ project_settings_addendum = """
 #---django settings addendum
 INSTALLED_APPS = tuple(list(INSTALLED_APPS)+['django_extensions','simulator','calculator'])
 #---common static directory
+STATIC_ROOT = os.path.join(BASE_DIR,'static','static_root')
 STATICFILES_DIRS = [os.path.join(BASE_DIR,'static')]
 TEMPLATES[0]['OPTIONS']['libraries'] = {'code_syntax':'calculator.templatetags.code_syntax'}
 TEMPLATES[0]['OPTIONS']['context_processors'].append('calculator.context_processors.global_settings')
