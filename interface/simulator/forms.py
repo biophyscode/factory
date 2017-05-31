@@ -38,6 +38,19 @@ class SimulationSettingsForm(forms.Form):
 					self.fields[named_settings+'|'+key].label = re.sub('_',' ',key.lower())
 					self.fields[named_settings+'|'+key].group = group_num
 
+class CoordinatesSelectorForm(forms.Form):
+	"""
+	Form for choosing coordinates to retrieve before running the simulation.
+	"""
+	def __init__(self,*args,**kwargs):
+		kwargs.setdefault('label_suffix','')
+		super(forms.Form,self).__init__(*args,**kwargs)
+		#---! conditions on adding sources? or do we just carte blanche copy them into inputs?
+		source_choices = [[obj.id,obj.name] for obj in Coordinates.objects.all()]
+		self.fields['source'] = forms.MultipleChoiceField(required=False,choices=source_choices,
+			help_text='to use a custom structure, set both "pdb source" and "start structure" to "none" '+
+			'and select a "Coordinates" object here')
+
 def validate_file_extension(value):
 	if not re.match('^.+\.pdb$',value):
 		raise ValidationError(_('%(value)s requires a file extension'),params={'value':value},)
