@@ -9,7 +9,7 @@ from makeface import abspath
 from datapack import asciitree
 from cluster import backrun
 
-__all__ = ['connect','template','connect','run','shutdown','prepare_server']
+__all__ = ['connect','template','connect','run','shutdown','prepare_server','show_running_factories']
 
 from setup import FactoryEnv
 
@@ -719,3 +719,8 @@ def shutdown_public(name=None):
 	#if not os.geteuid()==0:
 	#	raise Exception('you must run `shutdown <name> public` as sudo!')
 	shutdown_stop_locked(name)
+
+def show_running_factories():
+	"""Show all factory processes."""
+	bash('ps xao pid,user,cmd | egrep "([c]luster|[m]anage.py|[m]od_wsgi-express|[j]upyter)"')
+
