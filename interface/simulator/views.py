@@ -10,6 +10,11 @@ from interact import *
 from tools import import_remote,yamlb
 import os,json
 
+from calculator.interact import get_notebook_token
+
+#---hold globals which should never change
+notebook_token = None
+
 #---! this is a useful tool. move it somewhere more prominent
 #---dictionary lookups in templates e.g. "status_by_sim|get_item:sim.name"
 from django.template.defaulttags import register
@@ -34,10 +39,13 @@ def index(request):
 	"""
 	Simulator index shows: simulations, start button.
 	"""
+	global notebook_token
+	#---get the notebook token once and hold it in memory
+	if not notebook_token: notebook_token = get_notebook_token()
 	print(settings.GROMACS_CONFIG)
 	sims = Simulation.objects.all().order_by('id')
 	coords = Coordinates.objects.all().order_by('id')
-	outgoing = dict(sims=sims,coords=coords)
+	outgoing = dict(sims=sims,coords=coords,notebook_token=notebook_token)
 	outgoing.update(root=settings.SIMSPOT)
 	#---simulations by status
 	statuses = job_status_infer()
