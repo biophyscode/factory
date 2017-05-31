@@ -83,7 +83,7 @@ def job_status_infer(sim=None):
 		sims_stamps = dict([(sim.name,re.match(regex_submitted,sim.status).group(1)) 
 			for sim in sims_submitted])
 		sims_not_submitted = [sim for sim in sims if not re.match(regex_submitted,sim.status)]
-	else: sims_submitted = [sim]
+	else: sims_submitted,sims_not_submitted = [sim],[]
 	#---infer the status of each job
 	statuses = {}
 	for sim in sims_submitted:
