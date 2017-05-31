@@ -721,6 +721,10 @@ def shutdown_public(name=None):
 	shutdown_stop_locked(name)
 
 def show_running_factories():
-	"""Show all factory processes."""
+	"""
+	Show all factory processes.
+	Note that jupyter notebooks cannot be easily killed manually so use the full path and try `pkill -f`.
+	Otherwise this function can help you clean up redundant factories by username.
+	"""
 	bash('ps xao pid,user,cmd | egrep "([c]luster|[m]anage.py|[m]od_wsgi-express|[j]upyter)"')
 
