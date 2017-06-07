@@ -10,6 +10,11 @@ from interact import *
 from tools import import_remote,yamlb
 import os,json
 
+from calculator.interact import get_notebook_token
+
+#---hold globals which should never change
+notebook_token = None
+
 #---! this is a useful tool. move it somewhere more prominent
 #---dictionary lookups in templates e.g. "status_by_sim|get_item:sim.name"
 from django.template.defaulttags import register
@@ -34,10 +39,13 @@ def index(request):
 	"""
 	Simulator index shows: simulations, start button.
 	"""
+	global notebook_token
+	#---get the notebook token once and hold it in memory
+	if not notebook_token: notebook_token = get_notebook_token()
 	print(settings.GROMACS_CONFIG)
 	sims = Simulation.objects.all().order_by('id')
 	coords = Coordinates.objects.all().order_by('id')
-	outgoing = dict(sims=sims,coords=coords)
+	outgoing = dict(sims=sims,coords=coords,notebook_token=notebook_token)
 	outgoing.update(root=settings.SIMSPOT)
 	#---simulations by status
 	statuses = job_status_infer()
@@ -45,8 +53,7 @@ def index(request):
 		for name,stat in statuses.items() if stat['stat']==stat_type])
 		for stat_type in ['running','waiting','finished']])
 	outgoing.update(cluster_stat=cluster_stat)
-	statuses_by_sim = dict([(k,v['stat']) for k,v in statuses.items()])
-	print(statuses_by_sim)
+	statuses_by_sim = dict([(k,v['stat'] if v['stat'] else '???XXXX') for k,v in statuses.items()])
 	outgoing.update(status_by_sim=statuses_by_sim)
 	#---hide the cluster console unless some jobs are running
 	if any(v=='running' for v in statuses_by_sim.values()): outgoing.update(cluster_running=True)
@@ -83,7 +90,8 @@ def job_status_infer(sim=None):
 		sims_submitted = [sim for sim in sims if re.match(regex_submitted,sim.status)]
 		sims_stamps = dict([(sim.name,re.match(regex_submitted,sim.status).group(1)) 
 			for sim in sims_submitted])
-	else: sims_submitted = [sim]
+		sims_not_submitted = [sim for sim in sims if not re.match(regex_submitted,sim.status)]
+	else: sims_submitted,sims_not_submitted = [sim],[]
 	#---infer the status of each job
 	statuses = {}
 	for sim in sims_submitted:
@@ -100,6 +108,9 @@ def job_status_infer(sim=None):
 				job_status = namer
 				break
 		statuses[sim.name] = {'stat':job_status,'stamp':submit_stamp,'fn':job_cluster_fn,'id':sim.id}
+	for sim in sims_not_submitted:
+		statuses[sim.name] = {'stat':'construction',
+			'stamp':'no stamp yet','fn':'no job file yet','id':sim.id}
 	return statuses
 
 def detail_simulation(request,id):
@@ -147,20 +158,28 @@ def detail_simulation(request,id):
 				settings_blocks = {'settings':{'settings':yamlb(expt['settings']),
 					'multi':[i[0] for i in re.findall(regex_block_standard,expt['settings'],
 					flags=re.M+re.DOTALL)]}}
+				# !!! hello this is also a hack
+				#settings_blocks['chooser?'] = {'settings':{'choosy':'incoming_sources'},'multi':[]}
 			#---! metarun development goes here
 			else: return HttpResponse('metarun is under development')
 			form = SimulationSettingsForm(initial={'settings_blocks':settings_blocks})
 			#---prepare fieldsets as a loop over the blocks of settings, one per run
-			outgoing['fieldsets'] = tuple([FieldSet(form,[settings_name+'|'+key 
+			outgoing['fieldsets'] = [FieldSet(form,[settings_name+'|'+key 
 				for key,val in settings_block['settings'].items()],legend=settings_name) 
-				for settings_name,settings_block in settings_blocks.items()])
+				for settings_name,settings_block in settings_blocks.items()]
+			#---! add a condition for whether we need a coordinate here? only some methods actually use it
+			form_source = CoordinatesSelectorForm()
+			outgoing['fieldsets'].append(FieldSet(form_source,['source'],
+				legend="fetch coordinates"))
+			outgoing['fieldsets'] = tuple(outgoing['fieldsets'])
 		#---on submission we prepare the job
 		else:
 			form = SimulationSettingsForm(request.POST,request.FILES)
+			form_source = CoordinatesSelectorForm(request.POST,request.FILES)
 			#---note that the form validator applies here. Using "None" in the settings will cause some 
 			#---...settings to be blank on the form and excepted on post. use "none" to get around this
 			#---note that if the form is invalid the site will complain and keep you there
-			if form.is_valid():
+			if form.is_valid() and form_source.is_valid():
 				#---unpack the form
 				unpacked_form = [(i.split('|'),j) for i,j in form.data.items() if '|' in i]
 				settings_blocks = dict([(k[0],{}) for k,v in unpacked_form])
@@ -171,7 +190,18 @@ def detail_simulation(request,id):
 					sim.status = 'submitted:%s'%submit_fn
 					sim.save()
 				else: return HttpResponse('metarun is under development')
-					
+				#---process any incoming sources
+				pks = form_source.cleaned_data['source']
+				#---! implement input folders here at some point, perhaps using an alternate data structure
+				if len(pks)>=1:
+					if len(pks)>1:
+						return HttpResponse('cannot parse incoming coordinates request: %s'%
+							str(form_source.cleaned_data))
+					obj = Coordinates.objects.get(pk=pks[0])
+					#---copy the coordinate to the automacs simulation, where it is automatically picked up
+					#---...from the root of the inputs folder (assume no other PDB file there)
+					shutil.copyfile(os.path.join(settings.COORDS,obj.name),
+						os.path.join(settings.SIMSPOT,sim.path,'inputs',obj.name))
 				return HttpResponseRedirect(reverse('simulator:detail_simulation',kwargs={'id':sim.id}))
 
 	#---submitted and running jobs

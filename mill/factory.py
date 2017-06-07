@@ -9,7 +9,7 @@ from makeface import abspath
 from datapack import asciitree
 from cluster import backrun
 
-__all__ = ['connect','template','connect','run','shutdown']
+__all__ = ['connect','template','connect','run','shutdown','prepare_server','show_running_factories']
 
 from setup import FactoryEnv
 
@@ -77,8 +77,7 @@ project_settings_addendum = """
 #---django settings addendum
 INSTALLED_APPS = tuple(list(INSTALLED_APPS)+['django_extensions','simulator','calculator'])
 #---common static directory
-STATIC_ROOT = os.path.join(BASE_DIR,'static','static_root')
-STATICFILES_DIRS = [os.path.join(BASE_DIR,'static')]
+STATIC_ROOT = os.path.join(BASE_DIR,'static_root')
 TEMPLATES[0]['OPTIONS']['libraries'] = {'code_syntax':'calculator.templatetags.code_syntax'}
 TEMPLATES[0]['OPTIONS']['context_processors'].append('calculator.context_processors.global_settings')
 #---all customizations
@@ -227,9 +226,6 @@ def connect_single(connection_name,**specs):
 	#---one new django project per connection
 	bash('django-admin startproject %s'%connection_name,
 		log='logs/log-%s-startproject'%connection_name,cwd='site/')
-	#---link the static files to the development codes (could use copytree)
-	os.symlink(os.path.join(os.getcwd(),django_source,'static'),
-		os.path.join('site',connection_name,'static'))
 
 	#---if the user specifies a database location we override it here
 	if specs.get('database',None):
@@ -241,9 +237,16 @@ def connect_single(connection_name,**specs):
 	#---we also add changes to django-default paths
 	with open(os.path.join('site',connection_name,connection_name,'settings.py'),'a') as fp:
 		fp.write(project_settings_addendum+database_path_change)
-		if specs.get('development',False):
+		#---only use the development code if the flag is set and we are not running public
+		if specs.get('development',False) and not specs.get('public',False):
 			fp.write('#---use the development copy of the code\n'+
 				'import sys;sys.path.insert(0,os.path.join(os.getcwd(),"%s"))'%django_source) 
+		#---one more thing: custom settings specify static paths for local or public serve
+		#if specs.get('public',None):
+		#	fp.write("\nSTATICFILES_DIRS = [os.path.join(BASE_DIR,'static')]")
+		#else:
+		fp.write("\nSTATICFILES_DIRS = [os.path.join('%s','interface','static')]"%
+			os.path.abspath(os.getcwd()))
 
 	#---write custom settings
 	#---some settings are literals
@@ -258,6 +261,17 @@ def connect_single(connection_name,**specs):
 				out = '%s = %s\n'%(key,val)
 			else: out = '%s = "%s"\n'%(key,val)
 			fp.write(out)
+
+	#---development uses live copy of static files in interface/static
+	if not specs.get('public',None):
+		#---link the static files to the development codes (could use copytree)
+		os.symlink(os.path.join(os.getcwd(),django_source,'static'),
+			os.path.join('site',connection_name,'static'))
+	#---production collects all static files
+	else: 
+		os.mkdir(os.path.join(os.getcwd(),'site',connection_name,'static_root'))
+		bash('python manage.py collectstatic',cwd='site/%s'%connection_name)
+
 	#---write project-level URLs
 	with open(os.path.join('site',connection_name,connection_name,'urls.py'),'w') as fp:
 		fp.write(project_urls)
@@ -384,6 +398,13 @@ if False: get_omni_dataspots = """if os.path.isfile(CALCSPOT+'/paths.py'):
 
 ###---UTILITY FUNCTIONS
 
+def prepare_server():
+	"""
+	Confirm that we are ready to serve.
+	"""
+	#---mod_wsgi is not available for conda on python 2
+	bash('pip install mod_wsgi')
+
 def template(template=None,connection_file=None,project_name=None):
 	"""
 	List templates and possibly create one for the user.
@@ -455,6 +476,11 @@ def connect(name=None,public=False):
 	"""
 	Connect or reconnect a particular project.
 	"""
+	#---check that we have already installed mod_wsgi before continuing
+	if public:
+		if not os.path.isfile('env/envs/py2/bin/mod_wsgi-express'):
+			raise Exception('please install mod_wsgi before continuing with a public factory. '
+				'try `make prepare_server`')
 	#---get all available connections
 	toc = collect_connections(name)
 	#---which connections we want to make
@@ -501,8 +527,8 @@ def start_site(name,port,public=False,sudo=False):
 		#---! hard-coded development static paths
 		cmd = ('%senv/envs/py2/bin/mod_wsgi-express start-server '%('sudo ' if sudo else '')+
 			'--port %d site/%s/%s/wsgi.py --user %s --group %s '+
-			'--python-path site/%s --url-alias /static interface/static')%(
-			port,name,name,user,group,name)
+			'--python-path site/%s %s')%(port,name,name,user,group,name,
+			('--url-alias /static %s'%('interface/static' if not public else 'site/%s/static_root'%name)))
 		auth_fn = os.path.join('site',name,name,'wsgi_auth.py')
 		if os.path.isfile(auth_fn): cmd += ' --auth-user-script=%s'%auth_fn
 	backrun(cmd=cmd,log=log,stopper=lock,killsig='KILL',sudo=sudo,
@@ -693,3 +719,12 @@ def shutdown_public(name=None):
 	#if not os.geteuid()==0:
 	#	raise Exception('you must run `shutdown <name> public` as sudo!')
 	shutdown_stop_locked(name)
+
+def show_running_factories():
+	"""
+	Show all factory processes.
+	Note that jupyter notebooks cannot be easily killed manually so use the full path and try `pkill -f`.
+	Otherwise this function can help you clean up redundant factories by username.
+	"""
+	bash('ps xao pid,user,cmd | egrep "([c]luster|[m]anage.py|[m]od_wsgi-express|[j]upyter)"')
+
