@@ -1,6 +1,0 @@
-# strays not available via conda
-mdanalysis
-django-extensions
-"ipython[notebook]"
-brewer2mpl
-mayavi

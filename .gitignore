@@ -12,3 +12,5 @@ env/
 logs/
 pack/
 site/
+cluster/
+interface/static/static_root

@@ -11,6 +11,7 @@
 <div class="brick brick-wide2">
 <h1>simulation: {{ sim.name }}</h1>
 {% if job_status %}job status: <strong>{{ job_status }}</strong>{% endif %}
+{% ifequal job_status "waiting" %}<br>when the job starts, refreshing this page will turn on the monitor{% endifequal %}
 </div>
 
 {% if logging %}
@@ -75,12 +76,14 @@ select an experiment<br>
 <tr><legend style="text-align:left"><h3>{{ set.legend }}</h3></legend></tr>
 {% if set.details %}{{set.details}}<br>{% endif %}
 {% for field in set %}
-<tr><td style="text-align:right;">{{ field.label }}</td><td>{{ field }}</td></tr>
+<tr><td style="text-align:right;">{{ field.label }}</td><td>{{ field }}
+{% if field.help_text %}<div class="help">{{ field.help_text }}</div>{% endif %}
+</td></tr>
 {% endfor %}
 </tbody>
 </table>
 {% endfor %}
-<input class="button" type="submit" value="start" style="width:100"/><p>
+<br><input class="button" type="submit" value="start" style="width:100"/><p>
 </form>
 </div>
 {% endif %}

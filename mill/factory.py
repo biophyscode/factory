@@ -9,7 +9,7 @@ from makeface import abspath
 from datapack import asciitree
 from cluster import backrun
 
-__all__ = ['connect','template','connect','run','shutdown']
+__all__ = ['connect','template','connect','run','shutdown','prepare_server','show_running_factories']
 
 from setup import FactoryEnv
 
@@ -23,7 +23,10 @@ import pwd,grp
 username = pwd.getpwuid(os.getuid())[0]
 uid = pwd.getpwnam(username).pw_uid
 #---! dangerous if the user is not in
-gid = grp.getgrnam('users').gr_gid
+try: gid = grp.getgrnam('users').gr_gid
+except: 
+	try: gid = grp.getgrnam('everyone').gr_gid
+	except: raise Exception('cannot get the group')
 
 ###---CONNECT PROCEDURE PORTED FROM original FACTORY
 
@@ -74,7 +77,7 @@ project_settings_addendum = """
 #---django settings addendum
 INSTALLED_APPS = tuple(list(INSTALLED_APPS)+['django_extensions','simulator','calculator'])
 #---common static directory
-STATICFILES_DIRS = [os.path.join(BASE_DIR,'static')]
+STATIC_ROOT = os.path.join(BASE_DIR,'static_root')
 TEMPLATES[0]['OPTIONS']['libraries'] = {'code_syntax':'calculator.templatetags.code_syntax'}
 TEMPLATES[0]['OPTIONS']['context_processors'].append('calculator.context_processors.global_settings')
 #---all customizations
@@ -114,7 +117,7 @@ def connect_single(connection_name,**specs):
 	mkdir_or_report('site')
 	#---the site is equivalent to a django project
 	#---the site draws on either prepackaged apps in the pack folder or the in-development versions in dev
-	#---since the site has no additional data except taht specified in connect.yaml, we can always remake it
+	#---since the site has no additional data except that specified in connect.yaml, we can always remake it
 	if os.path.isdir('site/'+connection_name):
 		print("[STATUS] removing the site for \"%s\" to remake it"%connection_name)
 		shutil.rmtree('site/'+connection_name)
@@ -223,17 +226,27 @@ def connect_single(connection_name,**specs):
 	#---one new django project per connection
 	bash('django-admin startproject %s'%connection_name,
 		log='logs/log-%s-startproject'%connection_name,cwd='site/')
-	#---link the static files to the development codes (could use copytree)
-	os.symlink(os.path.join(os.getcwd(),django_source,'static'),
-		os.path.join('site',connection_name,'static'))
+
+	#---if the user specifies a database location we override it here
+	if specs.get('database',None):
+		database_path_change = "\nDATABASES['default']['NAME'] = '%s'"%(
+			os.path.abspath(specs['database']))
+	else: database_path_change = ''
 
 	#---all settings are handled by appending to the django-generated default
 	#---we also add changes to django-default paths
 	with open(os.path.join('site',connection_name,connection_name,'settings.py'),'a') as fp:
-		fp.write(project_settings_addendum)
-		if specs.get('development',False):
+		fp.write(project_settings_addendum+database_path_change)
+		#---only use the development code if the flag is set and we are not running public
+		if specs.get('development',False) and not specs.get('public',False):
 			fp.write('#---use the development copy of the code\n'+
 				'import sys;sys.path.insert(0,os.path.join(os.getcwd(),"%s"))'%django_source) 
+		#---one more thing: custom settings specify static paths for local or public serve
+		#if specs.get('public',None):
+		#	fp.write("\nSTATICFILES_DIRS = [os.path.join(BASE_DIR,'static')]")
+		#else:
+		fp.write("\nSTATICFILES_DIRS = [os.path.join('%s','interface','static')]"%
+			os.path.abspath(os.getcwd()))
 
 	#---write custom settings
 	#---some settings are literals
@@ -248,6 +261,17 @@ def connect_single(connection_name,**specs):
 				out = '%s = %s\n'%(key,val)
 			else: out = '%s = "%s"\n'%(key,val)
 			fp.write(out)
+
+	#---development uses live copy of static files in interface/static
+	if not specs.get('public',None):
+		#---link the static files to the development codes (could use copytree)
+		os.symlink(os.path.join(os.getcwd(),django_source,'static'),
+			os.path.join('site',connection_name,'static'))
+	#---production collects all static files
+	else: 
+		os.mkdir(os.path.join(os.getcwd(),'site',connection_name,'static_root'))
+		bash('python manage.py collectstatic',cwd='site/%s'%connection_name)
+
 	#---write project-level URLs
 	with open(os.path.join('site',connection_name,connection_name,'urls.py'),'w') as fp:
 		fp.write(project_urls)
@@ -375,9 +399,18 @@ if False: get_omni_dataspots = """if os.path.isfile(CALCSPOT+'/paths.py'):
 
 ###---UTILITY FUNCTIONS
 
-def template(template=None,name=None):
+def prepare_server():
+	"""
+	Confirm that we are ready to serve.
+	"""
+	#---mod_wsgi is not available for conda on python 2
+	bash('pip install mod_wsgi')
+
+def template(template=None,connection_file=None,project_name=None):
 	"""
 	List templates and possibly create one for the user.
+	Use the connection_file and project_name flags to set these options.
+	Otherwise, only the template name is required.
 	"""
 	if not os.path.isdir('connections'): os.mkdir('connections')
 	template_source = 'connection_templates.py'
@@ -385,21 +418,25 @@ def template(template=None,name=None):
 		templates = {}
 		execfile(os.path.join(os.path.dirname(__file__),template_source),templates)
 		for key in [i for i in templates if not re.match('^template_',i)]: templates.pop(key)
-		asciitree({'templates':templates.keys()})
+		asciitree({'templates':[re.match('^template_(.+)$',k).group(1) for k in templates.keys()]})
 	else: raise Exception('dev')
 	#---if the user requests a template, write it for them
-	if not template and not name: print('[NOTE] rerun with e.g. '+
-		'`make template <template_name> <connection_file>` to make a new connection. '+
-		'you can omit the connection file name.')
-	elif name and not template: raise Exception('you must supply a template_name')
-	elif template not in templates: raise Exception('cannot find template "%s"'%template)
-	elif not name and template: name = template+'.yaml'
+	if not template and not connection_file: print('[NOTE] rerun with e.g. '+
+		'`make template <template_name>` to make a new connection with the same name as the template. '+
+		'you can also supply keyword arguments for the connection_file and project name')
+	elif connection_file and not template: raise Exception('you must supply a template_name')
+	elif template not in templates and 'template_%s'%template not in templates: 
+		raise Exception('cannot find template "%s"'%template)
+	elif not connection_file and template: connection_file = template+'.yaml'
 	#---write the template
 	if template:
-		fn = os.path.join('connections',name)
+		fn = os.path.join('connections',connection_file)
 		if not re.match('^.+\.yaml$',fn): fn = fn+'.yaml'
 		with open(fn,'w') as fp:
-			fp.write(templates[template])
+			template_text = templates.get(template,templates['template_%s'%template])
+			if project_name: 
+				template_text = re.sub('^([^\s]+):','%s:'%project_name,template_text,flags=re.M)
+			fp.write(template_text)
 		print('[NOTE] wrote a new template to %s'%fn)
 
 def mkdir_or_report(dn):
@@ -440,6 +477,11 @@ def connect(name=None,public=False):
 	"""
 	Connect or reconnect a particular project.
 	"""
+	#---check that we have already installed mod_wsgi before continuing
+	if public:
+		if not os.path.isfile('env/envs/py2/bin/mod_wsgi-express'):
+			raise Exception('please install mod_wsgi before continuing with a public factory. '
+				'try `make prepare_server`')
 	#---get all available connections
 	toc = collect_connections(name)
 	#---which connections we want to make
@@ -464,13 +506,13 @@ def check_port(port,strict=False):
 	s.close()
 	return free
 
-def start_site(name,port,public=False):
+def start_site(name,port,public=False,sudo=False):
 	"""
 	"""
 	#---start django
 	site_dn = os.path.join('site',name)
 	if not os.path.isdir(site_dn): 
-		raise Exception('missing site/%s. did you forget to connect it?'%name)
+		raise Exception('missing project named "%s". did you forget to connect it?'%name)
 	#---if public we require an override port so that users are careful
 	if public:
 		public_details = get_public_ports(name)
@@ -484,18 +526,18 @@ def start_site(name,port,public=False):
 		cmd = 'python %s runserver 0.0.0.0:%s'%(os.path.join(os.getcwd(),site_dn,'manage.py'),port)
 	else:
 		#---! hard-coded development static paths
-		cmd = ('sudo env/envs/py2/bin/mod_wsgi-express start-server '+
+		cmd = ('%senv/envs/py2/bin/mod_wsgi-express start-server '%('sudo ' if sudo else '')+
 			'--port %d site/%s/%s/wsgi.py --user %s --group %s '+
-			'--python-path site/%s --url-alias /static interface/static')%(
-			port,name,name,user,group,name)
+			'--python-path site/%s %s')%(port,name,name,user,group,name,
+			('--url-alias /static %s'%('interface/static' if not public else 'site/%s/static_root'%name)))
 		auth_fn = os.path.join('site',name,name,'wsgi_auth.py')
 		if os.path.isfile(auth_fn): cmd += ' --auth-user-script=%s'%auth_fn
-	backrun(cmd=cmd,log=log,stopper=lock,killsig='KILL',sudo=public,
+	backrun(cmd=cmd,log=log,stopper=lock,killsig='KILL',sudo=sudo,
 		scripted=False,kill_switch_coda='rm %s'%lock)
 	if public: chown_user(log)
 	return lock,log
 
-def start_cluster(name,public=False):
+def start_cluster(name,public=False,sudo=False):
 	"""
 	"""
 	#---start the cluster. argument is the location of the kill switch for clean shutdown
@@ -506,8 +548,8 @@ def start_cluster(name,public=False):
 	#---cluster never requires sudo but we require sudo to run publicly so we pass it along
 	#---! run the cluster as the user when running public?
 	backrun(cmd='python -u mill/cluster_start.py %s'%lock,
-		log=log,stopper=lock,killsig='INT',scripted=False,sudo=public)
-	if public: chown_user(log)
+		log=log,stopper=lock,killsig='INT',scripted=False,sudo=sudo)
+	if sudo: chown_user(log)
 	return lock,log
 
 def daemon_ender(fn,cleanup=True):
@@ -535,8 +577,8 @@ def stop_locked(lock,log,cleanup=False):
 def get_public_ports(name):
 	"""Get public ports and details before serving."""
 	#---ensure sudo
-	if not os.geteuid()==0:
-		raise Exception('you must run public as sudo!')
+	#if not os.geteuid()==0:
+	#	raise Exception('you must run public as sudo!')
 	#---collect details from the connection
 	reqs = 'port user group hostnames notebook_ip'.split()
 	toc  = collect_connections(name)
@@ -553,7 +595,7 @@ def get_public_ports(name):
 		port_site=port_site,notebook_ip=notebook_ip)
 	return details
 
-def start_notebook(name,port,public=False):
+def start_notebook(name,port,public=False,sudo=False):
 	"""
 	"""
 	#---if public we require an override port so that users are careful
@@ -579,14 +621,16 @@ def start_notebook(name,port,public=False):
 	#---note that without zeroing port-retries, jupyter just tries random ports nearby (which is bad)
 	else: 
 		username = public_details['user']
-		cmd = ('sudo -i -u %s %s '%(
-			username,os.path.join(os.getcwd(),'env/envs/py2/bin/jupyter-notebook'))+
-			'--user=%s --port-retries=0 '%username+
+		#---! unsetting this variable because some crazy run/user error
+		if 'XDG_RUNTIME_DIR' in os.environ: del os.environ['XDG_RUNTIME_DIR']
+		cmd = (('sudo -i -u %s '%username if sudo else '')+'%s '%(
+			os.path.join(os.getcwd(),'env/envs/py2/bin/jupyter-notebook'))+
+			('--user=%s '%username if sudo else ' ')+'--port-retries=0 '+
 			'--port=%d --no-browser --ip="%s" --notebook-dir="%s"'%(port,notebook_ip,
 				os.path.join(os.getcwd(),'calc',name)))
 	backrun(cmd=cmd,log=log,stopper=lock,killsig='TERM',
-		scripted=False,kill_switch_coda='rm %s'%lock,sudo=public)
-	if public: chown_user(log)
+		scripted=False,kill_switch_coda='rm %s'%lock,sudo=sudo)
+	if sudo: chown_user(log)
 	return lock,log
 
 def run(name,public=False):
@@ -605,6 +649,12 @@ def run(name,public=False):
 		raise Exception('failed to start the cluster so we shut down the site. exception: %s'%str(e)) 
 	#---! do we need to have an exception on notebook failure?
 	start_notebook(name,nb_port,public=public)
+	#---report the status to the user
+	url = 'http://%s:%d'%('localhost',site_port)
+	if public:
+		try: url = 'http://%s:%d'%(toc[name]['public']['hostnames'][0],toc[name]['public']['port'])
+		except: pass
+	print('[STATUS] serving from:  %s'%url)
 
 def shutdown_stop_locked(name):
 	"""
@@ -667,6 +717,15 @@ def shutdown_public(name=None):
 		if su_jobs: raise Exception('`make shutdown <name> public` needs a name. found publics: %s'%su_jobs)
 		else: raise Exception('no sudo jobs running')
 	#---ensure sudo
-	if not os.geteuid()==0:
-		raise Exception('you must run `shutdown <name> public` as sudo!')
+	#if not os.geteuid()==0:
+	#	raise Exception('you must run `shutdown <name> public` as sudo!')
 	shutdown_stop_locked(name)
+
+def show_running_factories():
+	"""
+	Show all factory processes.
+	Note that jupyter notebooks cannot be easily killed manually so use the full path and try `pkill -f`.
+	Otherwise this function can help you clean up redundant factories by username.
+	"""
+	bash('ps xao pid,user,cmd | egrep "([c]luster|[m]anage.py|[m]od_wsgi-express|[j]upyter)"')
+

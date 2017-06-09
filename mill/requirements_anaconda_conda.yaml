@@ -33,3 +33,4 @@ dependencies:
   - ipdb
   - sphinx
   - numpydoc
+  - sqlalchemy
