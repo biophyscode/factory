@@ -279,7 +279,7 @@ th {
   font-style: normal;
   /*rpb modifications*/
   font-weight: 400;
-  font-size: 1.5em;
+  /* hiding this mod font-size: 1.5em; */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
