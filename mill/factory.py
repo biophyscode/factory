@@ -360,6 +360,7 @@ def connect_single(connection_name,**specs):
 	if calc_meta_filters:
 		for filt in calc_meta_filters:
 			#---note that meta_filter is turned into a list in config.py in omnicalc
+			bash('make unset meta_filter',cwd=specs['calc'])
 			bash('make set meta_filter="%s"'%filt,cwd=specs['calc'])
 
 	#---configure omnicalc 
