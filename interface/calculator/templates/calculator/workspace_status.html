@@ -1,15 +1,39 @@
 {% load staticfiles %}
 
+<form action="" method="POST">{% csrf_token %}
+
 <div class="btn-group-lg btn-group-vertical">
-<a href="compute?workspace={{ workspace_visible }}&pictures={{ pictures_visible }}" 
-	id="run_compute" class="btn btn-large btn-default">
+<button type="submit" id="run_compute" class="btn btn-large btn-default">
 <strong><code>compute!</code></strong>
-</label>
+</button>
 <a href="refresh?workspace={{ workspace_visible }}&pictures={{ pictures_visible }}" 
 	id="run_refresh" class="btn btn-large btn-default">
 <strong><code>refresh!</code></strong>
 </a>
+
+<!-- <input name="say" id="say" value="Hi"> -->
+
 </div>
+
+<!--
+compute form
+<form action="" method="POST">{% csrf_token %}
+{{ compute_form.as_p }}<button type="submit">Submit</button>
+</form>
+done
+-->
+
+<br><i>select metadata for "compute" otherwise we use the default</i><br>
+<div class="btn-group" data-toggle="buttons" style="margin: 5px 0 0 0;">
+{% for key,val in meta_files.items %}
+<label id="toggle_meta_{{key}}" class="btn btn-default btn-outline" style="text-align:left;">
+<input name="toggle_{{key}}" id="toggle_{{key}}" type="checkbox" autocomplete="off">
+{{ val }}
+</label> 
+{% endfor %} 
+</div>
+
+</form>
 
 <div class="btn-group-sm" style="margin: 5px 0 0 0;">
 <label id="toggle_workspace_on" class="btn btn-default">
@@ -48,5 +72,3 @@ hide all
 <li style="margin: 10px 0;">no meta file changes so this view is current</li>
 {% endif %}
 </ul>
-
-

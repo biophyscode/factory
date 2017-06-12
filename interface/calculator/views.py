@@ -5,12 +5,13 @@ from django.core.urlresolvers import reverse
 from django.conf import settings
 from django.http import JsonResponse
 from .models import *
+from .forms import *
 
 from interact import make_bootstrap_tree,get_notebook_token,export_notebook
 from interact import FactoryWorkspace,PictureAlbum,FactoryBackrun
 from tools import bash
 
-import os,json,re,datetime,time,glob,pprint
+import os,json,re,datetime,time,glob,pprint,subprocess,yaml
 
 #---shared global variables to prevent lags
 shared_work = None
@@ -92,16 +93,23 @@ def make_tree_tasks(outgoing):
 def make_tree_meta_files(outgoing):
 	"""Make a list of meta files as a tree with links to edit the files."""
 	global shared_work
+	#---instead of using "shared_work.work.specs_files" we get all meta_files
+	meta_fns = glob.glob(os.path.join(settings.CALC,'calcs','specs','*.yaml'))
 	#---get meta files
 	meta_files_rel = dict([(os.path.basename(k),os.path.relpath(k,os.path.join(os.getcwd(),settings.CALC))) 
-		for k in shared_work.work.specs_files])
+		for k in meta_fns])
 	meta_files_raw = list(make_bootstrap_tree(meta_files_rel,floor=1))
-	calc_rel_dn = os.path.relpath(settings.CALC,os.getcwd())
+	####calc_rel_dn = os.path.relpath(settings.CALC,os.getcwd())
 	for cc,c in enumerate(meta_files_raw):
+		meta_files_raw[cc]['selectable'] = False
 		meta_files_raw[cc]['href'] = 'http://%s:%s/%s?token=%s'%(
 			settings.NOTEBOOK_IP,settings.NOTEBOOK_PORT,'/'.join([
-			'edit',calc_rel_dn,meta_files_rel[c['text']]]),notebook_token)
+			'edit',meta_files_rel[c['text']]]),notebook_token)
 	meta_files_tree = json.dumps(meta_files_raw)
+	#---! finish hacking this
+	if False:
+		meta_files_tree = json.dumps([{"text":os.path.basename(k),"nodes": []} for k in shared_work.work.specs_files])
+	outgoing['meta_files'] = dict([(os.path.basename(k),os.path.basename(k)) for k in meta_fns])
 	outgoing['trees']['meta_files'] = {'title':'meta files',
 		'name':'meta_files','name_tree':'meta_files_tree','data':meta_files_tree}
 
@@ -118,6 +126,16 @@ def index(request,pictures=True,workspace=True):
 	"""
 	Simulator index shows: simulations, start button.
 	"""
+	global shared_work
+	#---catch post from compute button here
+	if request.method=='POST':
+		#---! note that the underscore transformation could be problematic
+		#---! ...we cannot allow dots in the labels
+		meta_fns_avail = glob.glob(os.path.join(settings.CALC,'calcs','specs','*.yaml'))
+		meta_fns = dict([(os.path.basename(k),os.path.basename(k)) 
+			for k in meta_fns_avail])
+		#---checkboxes are only in the POST if they are checked
+		return compute(request,meta_fns=[i for i in meta_fns if 'toggle_%s'%i in request.POST.keys()])
 	#---HTML sends back the status of visible elements so their visibility state does not change
 	#---! needs replaced
 	workspace = request.GET.get('workspace',
@@ -129,7 +147,7 @@ def index(request,pictures=True,workspace=True):
 	outgoing = {'trees':{},'workspace_visible':workspace,
 		'pictures_visible':pictures,'show_workspace_toggles':workspace=='true'}
 	#---! deprecated: global work,workspace_timestamp,notebook_token,logging_state,logging_text,plotdat
-	global shared_work,shared_album,shared_backrun,notebook_token
+	global shared_album,shared_backrun,notebook_token
 	#---get the notebook token once and hold it in memory
 	if not notebook_token: notebook_token = get_notebook_token()
 	if not shared_backrun: shared_backrun = FactoryBackrun()
@@ -159,6 +177,8 @@ def index(request,pictures=True,workspace=True):
 		#---prepare pictures
 		if not shared_album: shared_album = PictureAlbum(backrunner=shared_backrun)
 		outgoing.update(album=shared_album.album)
+	#---compute gets a form to select meta files
+	outgoing.update(compute_form=build_compute_form())
 	return render(request,'calculator/index.html',outgoing)
 
 def refresh(request):
@@ -201,15 +221,29 @@ def view_redirector(request):
 		kwargs={'workspace':request.GET.get('workspace','true'),
 		'pictures':request.GET.get('pictures','true')}))
 
-def compute(request):
+def compute(request,meta_fns=None,debug=None):
 	"""Run a compute request and redirect."""
 	global shared_backrun
+	#---! debugging
+	### return HttpResponse('calling compute with %s and debug is %s'%(str(meta_fns),str(debug)))
+	#---selecting meta files triggers manipulation of the meta_filter before running the compute
+	meta_filter_now = None
+	if meta_fns:
+		#---read the config to save the meta_filter for later
+		config_now = {}
+		exec(open(os.path.join(settings.CALC,'config.py')).read(),config_now)
+		meta_filter_now = config_now.get('meta_filter',[])
+		bash('make unset meta_filter',cwd=settings.CALC,catch=True)
+		bash('make set meta_filter %s'%' '.join(meta_fns),cwd=settings.CALC,catch=True)
 	#---dev purposes only: in case you go right to compute
 	if not shared_backrun: shared_backrun = FactoryBackrun()
 	cmd = 'make compute'
 	#---use the backrun instance to run make compute. note that this protects against simultaneous runs
 	print('[STATUS] running `%s`'%cmd)
-	shared_backrun.run(cmd=cmd,log='log-compute')
+	#---! old method is just one command: shared_backrun.run(cmd=cmd,log='log-compute')
+	shared_backrun.run(cmd='\n'.join(['make compute']+
+		([]#['make set meta_filter %s'%(' '.join(meta_filter_now))] 
+			if meta_filter_now else [])),log='log-compute',use_bash=True)
 	return view_redirector(request)
 
 def logging(request):
@@ -251,3 +285,42 @@ def clear_logging(request):
 	global shared_backrun
 	shared_backrun.state = 'idle'
 	return view_redirector(request)
+
+def make_yaml_file(request):
+	"""
+	Automatically generate a meta file for the simulation times you have.
+	Note that this is somewhat experimental. If your master clock is not contiguous then this will not work.
+	"""
+	#---skip is set for 2ps since we easily get 200ps in a five-minute villin demo
+	skip = 2
+	master_autogen_meta_fn = 'meta.current.yaml'
+	proc = subprocess.Popen('make look times_json',
+		cwd=settings.CALC,shell=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+	out,error = proc.communicate()
+	times = json.loads(re.search('^time_table = (.*?)$',out,flags=re.M).group(1))
+	times_avail = {}
+	for sn in times.keys():
+		try:
+			flat_times = [v2 for k,v in times[sn].items() for k2,v2 in v.items()]
+			start_all = int(min([i['start'] for i in flat_times]))
+			stop_all = int(max([i['stop'] for i in flat_times]))
+			times_avail[sn] = {'start':start_all,'stop':stop_all}
+		except: pass
+	#---! hard-coding protein for the automatic generation
+	groups = {'protein':'protein'}
+	#---turn available times into an obvious slice
+	slices = dict()
+	for sn,details in times_avail.items():
+		slices[str(sn)] = {'groups':dict(groups),'slices':{'current':{'pbc':'mol','groups':['protein'],
+			'start':details['start'],'end':details['stop'],'skip':skip}}}
+	#---formulate a coherent meta file from the slices
+	new_meta = {'slices':slices}
+	#---! add protein RMSD here to force creation of slices
+	#---! ...note that we may wish to make slices anyway
+	new_meta['collections'] = {'all':list(slices.keys())}
+	new_meta['calculations'] = {'protein_rmsd':{'uptype':'simulation',
+		'slice_name':'current','group':'protein','collections':['all']}}
+	new_meta['plots'] = dict([(k,dict(v,**{'calculation':k})) for k,v in new_meta['calculations'].items()])
+	with open(os.path.join(settings.CALC,'calcs','specs',master_autogen_meta_fn),'w') as fp:
+		fp.write(yaml.dump(new_meta))
+	return view_redirector(request)	

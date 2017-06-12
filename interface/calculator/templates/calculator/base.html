@@ -70,7 +70,7 @@ $('#toggle_workspace_off').on('click',function(){
     $('#{{ tree.name_tree }}').treeview({
       data: JSON.parse(meta_toc_json),
       levels: 1,backColor: '#E6E6E6', selectedBackColor: "#87CEEB",
-      selectedColor: "black",enableLinks: true,showTags: true
+      selectedColor: "black",enableLinks: true,showTags: true,
     });
 {% endfor %}
 
@@ -103,7 +103,6 @@ $('.brick').on('click',function(){ $grid.masonry('layout'); });
     });
 {% endfor %}
 
-
 // toggle picture categories
 {% if album %}
 {% for cat in album.cats %}
@@ -127,6 +126,15 @@ $('#toggle_pictures_on').on('click',function(){
         };
     {% endfor %}
 });
+$('#toggle_pictures_off').on('click',function(){
+    {% for cat in album.cats %}
+        if ($('#toggle_{{cat}}').is(':checked')) {
+            $('#toggle_{{cat}}').prop('checked',false).change();
+            $('#toggle_label_{{cat}}').removeClass('active');
+        };
+    {% endfor %}
+});
+
 $('#toggle_pictures_off').on('click',function(){
     {% for cat in album.cats %}
         if ($('#toggle_{{cat}}').is(':checked')) {

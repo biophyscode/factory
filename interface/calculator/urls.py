@@ -14,6 +14,7 @@ urlpatterns = [
 	url(r'^compute$',views.compute,name='compute'),
 	url(r'^get_code/(?P<name>.+)$',views.get_code,name='get_code'),
 	url(r'^make_notebook/(?P<name>.+)$',views.make_notebook,name='make_notebook'),
+	url(r'^make_yaml_file$',views.make_yaml_file,name='make_yaml_file'),
 	url(r'^logging$',views.logging,name='logging'),
 ]
 

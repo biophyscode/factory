@@ -7,6 +7,7 @@ All interactions with omnicalc are here.
 import os,sys,json,re,subprocess,datetime,glob,pprint
 import nbformat as nbf
 from django.conf import settings
+from django.http import HttpResponse
 
 import sys
 #---remote imports
@@ -104,24 +105,37 @@ class FactoryBackrun:
 		self.state = 'idle'
 		self.log_fn = None
 
-	def run(self,cmd,log):
+	def run(self,cmd,log,kill_switch_coda_extras=None,use_bash=False):
 		"""
 		Generic computation which uses the logging functionality.
 		Used for `make compute` and the thumbnailer.
 		"""
 		self.avail()
 		self.log_fn = log
-		backrun(cmd='%s kill_switch="%s"'%(cmd,self.lock_fn_abs),log=self.log_fn,stopper=self.lock_fn_abs,
-			cwd=self.cwd,killsig='KILL',scripted=False,kill_switch_coda='rm %s'%self.lock_fn_abs)
+		kwargs = dict(log=self.log_fn,stopper=self.lock_fn_abs,
+			cwd=self.cwd,killsig='KILL',scripted=False,kill_switch_coda='rm %s%s'%(self.lock_fn_abs,
+				'\n%s'%kill_switch_coda_extras if kill_switch_coda_extras else ''))
+		#---single command
+		if not use_bash: 
+			cmd = '%s kill_switch="%s"'%(cmd,self.lock_fn_abs)
+			backrun(cmd=cmd,**kwargs)
+		#---bash script
+		else: 
+			print('USING BASH')
+			print(cmd)
+			backrun(bash=cmd,**kwargs)
 		self.log_fn_abs = os.path.join(self.cwd,self.log_fn)
 		self.state = 'running'
 
 	def avail(self):
 		"""Make sure we are not running."""
 		if self.state!='idle':
-			raise Exception(
-				'cannot complete run request because we are running.'+
-				' go back, hit "reset calculation" and try again.')
+			#---! we previously threw an exception here but we tried to 
+			#---! ...make it look nice and now it never happens
+			return HttpResponse(
+				'<h1>warning</h1><br>you must click "reset calculation" on the terminal before '
+				'starting another calculation. this ensures that you inspect any previous error '
+				'logs before continuing.')
 
 	def dispatch_log(self):
 		"""
