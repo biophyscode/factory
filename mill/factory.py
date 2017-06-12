@@ -616,7 +616,8 @@ def start_notebook(name,port,public=False,sudo=False):
 	#---! jupyter doesn't recommend allowing root but we do so here so you can call
 	#---! `sudo make run <name> public` which prevents us from having to add sudo ourselves
 	if not public:
-		cmd = 'jupyter notebook --no-browser --port %d --port-retries=0'%port
+		cmd = 'jupyter notebook --no-browser --port %d --port-retries=0 --notebook-dir="%s"'%(
+			port,os.path.join(os.getcwd(),'calc',name))
 	#---note that without zeroing port-retries, jupyter just tries random ports nearby (which is bad)
 	else: 
 		username = public_details['user']
