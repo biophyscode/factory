@@ -15,6 +15,17 @@
 
 .brick-wide2 { width: 850px; }
 
+.brick-left {
+  border-left: solid;
+  border-width: 3px;
+  padding: 10px;
+  margin: 10px;
+  border-color:gray;
+  -webkit-box-sizing: unset;
+  -moz-box-sizing: unset;
+  box-sizing: unset;
+}
+
 .namefocus {
   text-decoration: underline wavy red;
   color: red;

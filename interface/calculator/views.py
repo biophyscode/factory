@@ -1,17 +1,18 @@
 from django.http import HttpResponse,HttpResponseRedirect
-from django.shortcuts import render,get_object_or_404
+from django.shortcuts import render,get_object_or_404,redirect
 from django.template import loader
 from django.core.urlresolvers import reverse
 from django.conf import settings
 from django.http import JsonResponse
 from .models import *
 from .forms import *
+import nbformat as nbf
 
 from interact import make_bootstrap_tree,get_notebook_token,export_notebook
 from interact import FactoryWorkspace,PictureAlbum,FactoryBackrun
 from tools import bash
 
-import os,json,re,datetime,time,glob,pprint,subprocess,yaml
+import os,json,re,datetime,time,glob,pprint,subprocess,yaml,copy
 
 #---shared global variables to prevent lags
 shared_work = None
@@ -66,9 +67,50 @@ def make_tree_calculations(outgoing):
 def make_tree_plots(outgoing):
 	"""Present plots as a tree."""
 	global shared_work
-	plots_tree_raw = list(make_bootstrap_tree(shared_work.work.plots,floor=1))
+	#---plots can come from a few different places: the plots dictionary, a plot file, or an interactive 
+	#---...notebook which comes from a plot script. note that plot items which are not found in the calcs
+	#---...folder will throw an error message
+	#---start with the plots in the workspace
+	plots_assembled = copy.deepcopy(shared_work.work.plots)
+	for plotname,plot in plots_assembled.items():
+		plot_fn = os.path.join(settings.CALC,'calcs','plot-%s.py'%plotname)
+		if not os.path.isfile(plot_fn):
+			plots_assembled[plotname] = {'details':copy.deepcopy(plot),
+				'ERROR missing plot script!':('this plot is not found in %s'
+				'however it is listed in the plots section of the metadata')%plot_fn}
+		else: plots_assembled[plotname] = {'details':copy.deepcopy(plot)}
+		plot_fn_interact = os.path.join(settings.CALC,'calcs','plot-%s.ipynb'%plotname)
+		if os.path.isfile(plot_fn_interact):
+			plots_assembled[plotname][os.path.basename(plot_fn_interact)] = (
+				'interactive plot generated on (UTC) %s'%
+				datetime.datetime.fromtimestamp(os.path.getmtime(plot_fn_interact)))
+	#---catch any plots not in the workspace
+	for fn in glob.glob(os.path.join(settings.CALC,'calcs','plot-*.py')):
+		plotname = re.match('^plot-(.+)\.py$',os.path.basename(fn)).group(1)
+		if plotname not in plots_assembled:
+			plots_assembled[plotname] = {'note: default plot':'this plot was found on disk but it has no '
+			'entry in the metadata. when it runs, it will use the corresponding entry from the `calculation` '
+			'entry in the metadata to figure out which simulations to plot.'}
+			#---! repetitive. add the interactive notebook if it's there
+			plot_fn_interact = os.path.join(settings.CALC,'calcs','plot-%s.ipynb'%plotname)
+			if os.path.isfile(plot_fn_interact):
+				plots_assembled[plotname][os.path.basename(plot_fn_interact)] = (
+					'interactive plot generated on (UTC) %s'%
+					datetime.datetime.fromtimestamp(os.path.getmtime(plot_fn_interact)))
+	plots_tree_raw = list(make_bootstrap_tree(plots_assembled,floor=2))
 	for cc,c in enumerate(plots_tree_raw): 
-		plots_tree_raw[cc]['href'] = 'get_code/plot-%s'%c['text']
+		#---suppress links if the file is missing. note the error message above should help
+		if os.path.isfile(os.path.join(settings.CALC,'calcs','plot-%s.py'%c['text'])):
+			plots_tree_raw[cc]['href'] = 'get_code/plot-%s'%c['text']
+		if os.path.isfile(os.path.join(settings.CALC,'calcs','plot-%s.ipynb'%c['text'])):
+			try:
+				#---get the right child index. since this is clumsy we only try
+				ind_ipynb_link = [ii for ii,i in enumerate(plots_tree_raw[cc]['nodes']) 
+					if i['text']=='plot-%s.ipynb'%c['text']][0]
+				plots_tree_raw[cc]['nodes'][ind_ipynb_link]['href'] = 'http://%s:%s/%s?token=%s'%(
+					settings.NOTEBOOK_IP,settings.NOTEBOOK_PORT,'/'.join([
+					'tree','calcs','plot-%s.ipynb'%c['text']]),notebook_token)
+			except: pass
 	plots_tree = json.dumps(plots_tree_raw)
 	outgoing['trees']['plots'] = {'title':'plots',
 		'name':'plots','name_tree':'plots_tree','data':plots_tree}
@@ -99,7 +141,6 @@ def make_tree_meta_files(outgoing):
 	meta_files_rel = dict([(os.path.basename(k),os.path.relpath(k,os.path.join(os.getcwd(),settings.CALC))) 
 		for k in meta_fns])
 	meta_files_raw = list(make_bootstrap_tree(meta_files_rel,floor=1))
-	####calc_rel_dn = os.path.relpath(settings.CALC,os.getcwd())
 	for cc,c in enumerate(meta_files_raw):
 		meta_files_raw[cc]['selectable'] = False
 		meta_files_raw[cc]['href'] = 'http://%s:%s/%s?token=%s'%(
@@ -177,9 +218,15 @@ def index(request,pictures=True,workspace=True):
 		#---prepare pictures
 		if not shared_album: shared_album = PictureAlbum(backrunner=shared_backrun)
 		outgoing.update(album=shared_album.album)
-	#---compute gets a form to select meta files
-	outgoing.update(compute_form=build_compute_form())
 	return render(request,'calculator/index.html',outgoing)
+
+def refresh_thumbnails(request):
+	"""Remake all thumbnails."""
+	global shared_album
+	print('REMAKING THUMBS!')
+	shared_album = PictureAlbum(backrunner=shared_backrun,regenerate_all=True)
+	print('DONE')
+	return view_redirector(request)
 
 def refresh(request):
 	"""Refresh the workspace and redirect to the calculator."""
@@ -224,8 +271,6 @@ def view_redirector(request):
 def compute(request,meta_fns=None,debug=None):
 	"""Run a compute request and redirect."""
 	global shared_backrun
-	#---! debugging
-	### return HttpResponse('calling compute with %s and debug is %s'%(str(meta_fns),str(debug)))
 	#---selecting meta files triggers manipulation of the meta_filter before running the compute
 	meta_filter_now = None
 	if meta_fns:
@@ -299,13 +344,12 @@ def make_yaml_file(request):
 	out,error = proc.communicate()
 	times = json.loads(re.search('^time_table = (.*?)$',out,flags=re.M).group(1))
 	times_avail = {}
-	for sn in times.keys():
-		try:
-			flat_times = [v2 for k,v in times[sn].items() for k2,v2 in v.items()]
-			start_all = int(min([i['start'] for i in flat_times]))
-			stop_all = int(max([i['stop'] for i in flat_times]))
-			times_avail[sn] = {'start':start_all,'stop':stop_all}
-		except: pass
+	for sn,details in times:
+		flat_times = [v2 for k,v in details for k2,v2 in v]
+		start_all = int(min([i['start'] for i in flat_times]))
+		stop_all = int(max([i['stop'] for i in flat_times]))
+		times_avail[sn] = {'start':start_all,'stop':stop_all}
+		#except: pass
 	#---! hard-coding protein for the automatic generation
 	groups = {'protein':'protein'}
 	#---turn available times into an obvious slice
@@ -317,10 +361,47 @@ def make_yaml_file(request):
 	new_meta = {'slices':slices}
 	#---! add protein RMSD here to force creation of slices
 	#---! ...note that we may wish to make slices anyway
-	new_meta['collections'] = {'all':list(slices.keys())}
+	new_meta['collections'] = {'all':tuple(slices.keys())}
 	new_meta['calculations'] = {'protein_rmsd':{'uptype':'simulation',
-		'slice_name':'current','group':'protein','collections':['all']}}
-	new_meta['plots'] = dict([(k,dict(v,**{'calculation':k})) for k,v in new_meta['calculations'].items()])
+		'slice_name':'current','group':'protein','collections':('all')}}
+	#---no need to add plots because they are all autodetected and default to calculations in the metadata
 	with open(os.path.join(settings.CALC,'calcs','specs',master_autogen_meta_fn),'w') as fp:
-		fp.write(yaml.dump(new_meta))
+		fp.write(yaml.safe_dump(new_meta))
 	return view_redirector(request)	
+
+def make_look_times(request):
+	"""
+	Make a notebook that lets users check the simulation times.
+	"""
+	global notebook_token
+	#---all tabs are converted to spaces because Jupyter
+	tab_width = 4
+	out_fn = os.path.join(settings.CALC,'calcs','look-times.ipynb')
+	#---basic code for the notebook
+	lines = ["cwd = '%s'"%os.path.join(settings.CALC),
+		'import os,sys,subprocess,re,json',
+		"proc = subprocess.Popen('make look times_json',"+
+			"cwd=cwd,shell=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE)",
+		'out,error = proc.communicate()',
+		"times = json.loads(re.search('^time_table = (.*?)$',out,flags=re.M).group(1))",
+		"sys.path.insert(0,os.path.abspath('../omni'))",
+		'from datapack import asciitree',
+		'for sn,details in times:',
+		'\tfor stepname,step in details:',
+        '\t\tfor partname,part in step:',
+		"\t\t\tprint(''.join([sn.ljust(20,'.'),partname.ljust(20,'.'),",
+		"\t\t\t\tstr(part['start']).ljust(10,'.'),str(part['stop']).rjust(10,'.')]))",]
+	#---make a new notebook
+	nb = nbf.v4.new_notebook()
+	#---write a title
+	stamp = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
+	header_text = ("# INSPECT TRAJECTORY TIMES\n"+"\nan *omnicalc* utility\n\nGenerated on `%s`. "+
+		"Visit the [notebook server](/tree/calc/%s/calcs/) for other scripts.")%(stamp,settings.NAME)
+	nb['cells'].append(nbf.v4.new_markdown_cell(header_text))
+	chunks = ['\n'.join(lines)]
+	for chunk in chunks:
+		nb['cells'].append(nbf.v4.new_code_cell(re.sub('\t',' '*tab_width,chunk.strip())))
+	#---write the notebook
+	with open(out_fn,'w') as fp: nbf.write(nb,fp)
+	return redirect("http://%s:%s/tree/calcs/look-times.ipynb?token=%s"%(
+		settings.NOTEBOOK_IP,settings.NOTEBOOK_PORT,notebook_token))

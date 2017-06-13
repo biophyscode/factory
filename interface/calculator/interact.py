@@ -41,8 +41,14 @@ def make_bootstrap_tree(spec,floor=None,level=None):
 			else: 
 				#---! general way to handle non-dictionary items
 				#---! note the try block is for printing postdat objects
-				try: yield {"text":key,"nodes":[{"text":re.sub("'",'\\"',str(val.__dict__))}]}
-				except: yield {"text":key,"nodes":[{"text":re.sub("'",'\\"',str(val))}]}
+				#---we always set selectable to false because we do not wish to confuse users and
+				#---...these trees are really just for viewing data or showing a link to edit something.
+				#---...note that unsetting selectable below only stops the events. use colors in base.html to 
+				#---...hide the selection
+				try: yield {"text":key,'selectable':False,
+					"nodes":[{"text":re.sub("'",'\\"',str(val.__dict__))}]}
+				except: yield {"text":key,'selectable':False,
+					"nodes":[{"text":re.sub("'",'\\"',str(val))}]}
 
 def get_notebook_token():
 	"""
@@ -180,7 +186,7 @@ class PictureAlbum:
 	Manage the factory view of the plots.
 	"""
 
-	def __init__(self,backrunner):
+	def __init__(self,backrunner,regenerate_all=False):
 
 		"""Prepare an album of plots. This includes thumbnails."""
 		#---check for a thumbnails directory
@@ -206,7 +212,9 @@ class PictureAlbum:
 			details = {'fn':base_fn}
 			#---check for thumbnails
 			thumbnail_fn = os.path.join(thumbnails_dn,base_fn)
-			details['thumb'] = os.path.isfile(thumbnail_fn)
+			#---the regenerate_all flag rewrites all thumbnails
+			if regenerate_all: details['thumb'] = False
+			else: details['thumb'] = os.path.isfile(thumbnail_fn)
 			#---construct a minimal descriptor of the plot from the name only
 			try: shortname = re.sub('[._]','-',re.match('^fig\.(.*)\.png$',base_fn).group(1))
 			except: shortname = re.match('^(.*?)\.png$',base_fn).group(1)
@@ -238,6 +246,7 @@ class PictureAlbum:
 		lines = ['#!/bin/bash']
 		thumbnails_dn = self.album['thumbnail_dn_abs']
 		for ii,(name,item) in enumerate(self.album['files'].items()):
+			print('checking thumb for %s'%name)
 			if not item['thumb']:
 				source_fn = os.path.join(settings.PLOT,name)
 				thumbnail_fn = os.path.join(thumbnails_dn,name)
@@ -245,7 +254,7 @@ class PictureAlbum:
 				lines.append('convert %s -thumbnail 500x500 %s'%(source_fn,thumbnail_fn))
 				#---! should we update here assuming that it is made correctly?
 				self.album['files'][name]['thumb'] = thumbnail_fn 
-		lines.append('echo "[STATUS] THUMBNAILS COMPLETE you may need to wait for them or refresh"')
+		lines.append('echo "[STATUS] thumbnails are complete. you may need to wait for them or refresh"')
 		with open(os.path.join(settings.CALC,'script-make-thumbnails.sh'),'w') as fp:
 			fp.write('\n'.join(lines))
 		global logging_fn

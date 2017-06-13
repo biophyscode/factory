@@ -69,7 +69,8 @@ $('#toggle_workspace_off').on('click',function(){
     var meta_toc_json = '{{ tree.data|safe }}';
     $('#{{ tree.name_tree }}').treeview({
       data: JSON.parse(meta_toc_json),
-      levels: 1,backColor: '#E6E6E6', selectedBackColor: "#87CEEB",
+      // changed selected color from '#E6E6E6' to background
+      levels: 1,backColor: '#E6E6E6', selectedBackColor: "#E6E6E6",
       selectedColor: "black",enableLinks: true,showTags: true,
     });
 {% endfor %}
@@ -84,10 +85,10 @@ $('.brick').on('click',function(){ $grid.masonry('layout'); });
             $('#toggle_{{treekey}}').prop('checked',true).change();
             $('#toggle_label_{{treekey}}').addClass('active');
             // this is a hack because ryan is too lazy to really understand callbacks in template loop ...
-            window.setTimeout(function(){ 
+            // removed the timeout because it might not be useful: window.setTimeout(function(){ 
                 location.href = "#{{ tree.name}}"; 
                 $('#{{ tree.name }}_tree_brick_title').addClass('namefocus');
-                },2000);
+            // },2000);
         } else { 
             location.href = "#{{ tree.name}}"; 
             {% for treekey,tree in trees.items %}
