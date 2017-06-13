@@ -5,7 +5,6 @@ from django.core.urlresolvers import reverse
 from django.conf import settings
 from django.http import JsonResponse
 from .models import *
-from .forms import *
 import nbformat as nbf
 
 from interact import make_bootstrap_tree,get_notebook_token,export_notebook
