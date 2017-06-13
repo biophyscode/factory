@@ -220,8 +220,9 @@ def connect_single(connection_name,**specs):
 	django_source = 'interface'
 	#---! switching to new development codes...calculator not available yet
 	for app in ['simulator','calculator']: 
-		if not os.path.isdir('pack/%s'%app): 
-			package_django_module(source=django_source,projname=app)
+		if os.path.isdir('pack/%s'%app): shutil.rmtree('pack/%s'%app)
+		#---always repackage!
+		package_django_module(source=django_source,projname=app)
 	
 	#---one new django project per connection
 	bash('django-admin startproject %s'%connection_name,
