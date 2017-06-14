@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 """
+Manage the execution of the factory.
 """
 
 import os,sys,glob,re,shutil,subprocess,textwrap,datetime,time
@@ -9,7 +10,7 @@ from makeface import abspath
 from datapack import asciitree
 from cluster import backrun
 
-__all__ = ['connect','template','connect','run','shutdown','prepare_server','show_running_factories']
+__all__ = ['connect','template','connect','run','shutdown','prepare_server','show_running_factories','ps']
 
 from setup import FactoryEnv
 
@@ -146,7 +147,7 @@ def connect_single(connection_name,**specs):
 	settings_custom = {
 		'SIMSPOT':abspath(specs['simulations_spot']),
 		#---! hard-coded. get it from config.py??
-		'AUTOMACS':'http://github.com/bradleyrp/automacs',
+		'AUTOMACS':'http://github.com/biophyscode/automacs',
 		'PLOT':abspath(specs['plot_spot']),
 		'POST':abspath(specs['post_spot']),
 		'COORDS':abspath(specs['coords_spot']),
@@ -633,6 +634,7 @@ def start_notebook(name,port,public=False,sudo=False):
 	backrun(cmd=cmd,log=log,stopper=lock,killsig='TERM',
 		scripted=False,kill_switch_coda='rm %s'%lock,sudo=sudo)
 	if sudo: chown_user(log)
+	#---note that the calling function should make sure the notebook started
 	return lock,log
 
 def run(name,public=False):
@@ -649,8 +651,22 @@ def run(name,public=False):
 	except Exception as e:
 		stop_locked(lock=lock_site,log=log_site)
 		raise Exception('failed to start the cluster so we shut down the site. exception: %s'%str(e)) 
-	#---! do we need to have an exception on notebook failure?
-	start_notebook(name,nb_port,public=public)
+	try: lock_notebook,log_notebook = start_notebook(name,nb_port,public=public)
+	except Exception as e:
+		stop_locked(lock=lock_site,log=log_site)
+		stop_locked(lock=lock_cluster,log=log_cluster)
+		raise Exception('failed to start the notebook so we shut down the site and cluster. '
+			'exception: %s'%str(e))
+	#---custom check that the notebook has found its port
+	#---wait for the notebook to start up and then check for a port failure
+	time.sleep(2)
+	with open(log_notebook) as fp: log_text = fp.read()
+	if re.search('is already in use',log_text,re.M): 
+		stop_locked(lock=lock_site,log=log_site)
+		stop_locked(lock=lock_notebook,log=log_notebook)
+		stop_locked(lock=lock_cluster,log=log_cluster)
+		raise Exception('failed to start the notebook so we shut down the site and cluster. '
+			'possible port error in %s'%log_notebook)
 	#---report the status to the user
 	url = 'http://%s:%d'%('localhost',site_port)
 	if public:
@@ -686,10 +702,11 @@ def shutdown(name=None,public=False):
 	for name in names:
 		for style in 'cluster site notebook'.split():
 			fn = 'pid.%s.%s.lock'%(name,style)
-			with open(fn) as fp: text = fp.read()
-			if re.search('sudo',text,re.M+re.DOTALL):
-				raise Exception(
-					'found sudo in %s. use `shutdown <name> public`'%fn)
+			if os .path.isfile(fn):
+				with open(fn) as fp: text = fp.read()
+				if re.search('sudo',text,re.M+re.DOTALL):
+					raise Exception(
+						'found sudo in %s. use `shutdown <name> public`'%fn)
 	toc  = collect_connections(name)
 	ports_need_closed = []
 	for name in names:
@@ -729,5 +746,9 @@ def show_running_factories():
 	Note that jupyter notebooks cannot be easily killed manually so use the full path and try `pkill -f`.
 	Otherwise this function can help you clean up redundant factories by username.
 	"""
-	bash('ps xao pid,user,cmd | egrep "([c]luster|[m]anage.py|[m]od_wsgi-express|[j]upyter)"')
+	cmd = 'ps xao pid,user,command | egrep "([c]luster|[m]anage.py|[m]od_wsgi-express|[j]upyter)"'
+	try: bash(cmd)
+	except: print('[NOTE] no processes found using bash command: `%s`'%cmd)
 
+#---alias for the background job inspector
+ps = show_running_factories

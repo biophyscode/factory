@@ -13,10 +13,6 @@ project:
   calc: calc/PROJECT_NAME
   repo: calc/PROJECT_NAME/calcs
   database: data/PROJECT_NAME/db.factory.sqlite3
-  omnicalc: https://github.com/bradleyrp/omnicalc
-  automacs: https://github.com/bradleyrp/automacs
-  # copy preloaded scripts from deploy/stable
-  startup: true
   # locate a gromacs.py to use current machine gromacs configuration (can be null)
   omni_gromacs_config: null
   post_data_spot: data/PROJECT_NAME/post
