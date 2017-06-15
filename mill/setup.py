@@ -188,7 +188,10 @@ class FactoryEnv:
 		if not anaconda_location: 
 			raise Exception('download anaconda and run `make set anaconda_location <path>`')
 		install_fn = abspath(anaconda_location)
-		if not os.path.isfile(install_fn): raise Exception('cannot find %s'%install_fn)
+		if not os.path.isfile(install_fn): 
+			raise Exception('cannot find %s. make sure you have a copy of anaconda there.'%install_fn+
+				'or run `make set anaconda_location=~/path/to/Miniconda3-latest-<architecture>.sh` '
+				'to use a different path.')
 		bash('bash %s -b -p %s/env'%(install_fn,os.getcwd()),log='logs/log-anaconda-env')
 		if self.use_python2: 
 			#---we have to source the root anaconda here. later the source_cmd will refer to "py2"

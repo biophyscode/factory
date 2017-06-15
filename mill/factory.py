@@ -135,6 +135,14 @@ def connect_single(connection_name,**specs):
 	specs['post_spot'] = specs.get('post_spot',os.path.join('data',connection_name,'post')) 
 	specs['simulations_spot'] = specs.get('simulations_spot',os.path.join('data',connection_name,'sims'))
 	specs['coords_spot'] = specs.get('coords_spot',os.path.join('data',connection_name,'coords'))
+	#---intervene here to replace PROJECT_NAME in the string values of each spot
+	for spotname,spot_details in specs.get('spots',{}).items():
+		for key,val in spot_details.items():
+			if type(val) in str_types:
+				specs['spots'][spotname][key] = re.sub('PROJECT_NAME',connection_name,val)
+			#---we also expand paths for route_to_data
+			specs['spots'][spotname]['route_to_data'] = os.path.expanduser(os.path.abspath(
+				specs['spots'][spotname]['route_to_data']))
 
 	#---cluster namer is set in a separate file
 	cluster_namer = {}
@@ -240,7 +248,7 @@ def connect_single(connection_name,**specs):
 	with open(os.path.join('site',connection_name,connection_name,'settings.py'),'a') as fp:
 		fp.write(project_settings_addendum+database_path_change)
 		#---only use the development code if the flag is set and we are not running public
-		if specs.get('development',False) and not specs.get('public',False):
+		if specs.get('development',True) and not specs.get('public',False):
 			fp.write('#---use the development copy of the code\n'+
 				'import sys;sys.path.insert(0,os.path.join(os.getcwd(),"%s"))'%django_source) 
 		#---one more thing: custom settings specify static paths for local or public serve
