@@ -12,7 +12,7 @@ demo:
   enable: true 
   site: site/PROJECT_NAME  
   calc: calc/PROJECT_NAME
-  repo: calc/PROJECT_NAME/calcs
+  repo: http://github.com/biophyscode/omni-basic
   database: data/PROJECT_NAME/db.factory.sqlite3
   post_data_spot: data/PROJECT_NAME/post
   post_plot_spot: data/PROJECT_NAME/plot
