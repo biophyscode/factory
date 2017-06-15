@@ -25,7 +25,14 @@ done
 
 <br><i>select metadata for "compute" otherwise we use the default. 
 note that this sets the <code>meta_filter</code> flag for manual calculations.
-</i><br>
+</i>
+{% if not meta_files.items %}
+<br><strong>no meta files available yet. use the button below to make the default.</strong><br>
+<div class="btn-group" style="margin: 5px 0 5px 0;">
+<a href="make_yaml_file?workspace={{ workspace_visible }}&pictures={{ pictures_visible }}" 
+id="run_refresh" class="btn btn-large btn-default">regenerate "meta.current.yaml"</a>
+</div>
+{% else %}
 <div class="btn-group" data-toggle="buttons" style="margin: 5px 0 0 0;">
 {% for key,val in meta_files.items %}
 <label id="toggle_meta_{{key}}" class="btn btn-default btn-outline" style="text-align:left;">
@@ -34,6 +41,7 @@ note that this sets the <code>meta_filter</code> flag for manual calculations.
 </label> 
 {% endfor %} 
 </div>
+{% endif %}
 
 </form>
 
@@ -57,7 +65,7 @@ hide all
 {% endfor %}  
 </div>
 
-<i>jump to tiles</i><br>
+<br><i>jump to tiles</i><br>
 
 <div class="btn-group" style="margin: 5px 0 0 0;">
 {% for treekey,tree in trees.items %}
