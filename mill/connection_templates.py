@@ -14,8 +14,8 @@ demo:
   calc: calc/PROJECT_NAME
   repo: http://github.com/biophyscode/omni-basic
   database: data/PROJECT_NAME/db.factory.sqlite3
-  post_data_spot: data/PROJECT_NAME/post
-  post_plot_spot: data/PROJECT_NAME/plot
+  post_spot: data/PROJECT_NAME/post
+  plot_spot: data/PROJECT_NAME/plot
   simulation_spot: data/PROJECT_NAME/sims
   public:
     port: 2000
