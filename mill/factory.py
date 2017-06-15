@@ -414,7 +414,7 @@ def prepare_server():
 	Confirm that we are ready to serve.
 	"""
 	#---mod_wsgi is not available for conda on python 2
-	bash('pip install mod_wsgi')
+	bash('LDLIBS=-lm pip install -U --no-cache-dir mod_wsgi')
 
 def template(template=None,connection_file=None,project_name=None):
 	"""
