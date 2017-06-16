@@ -162,7 +162,7 @@ def make_warn_missings(outgoing):
 
 ###---END WORKSPACE TILES
 
-def index(request,pictures=True,workspace=True):
+def index(request,pictures=True,workspace=True,show_pictures=False):
 	"""
 	Simulator index shows: simulations, start button.
 	"""
@@ -184,8 +184,10 @@ def index(request,pictures=True,workspace=True):
 		{True:'true',False:'false','true':'true','false':'false'}[pictures])
 	#---after this point workspace and picture flags are text
 	#---send out variables that tell the HTML whether different elements (e.g. pictures) are visible
+	#---! note that show_pictures could not be properly implemented on "only pictures"
 	outgoing = {'trees':{},'workspace_visible':workspace,
-		'pictures_visible':pictures,'show_workspace_toggles':workspace=='true'}
+		'pictures_visible':pictures,'show_pictures':show_pictures,
+		'show_workspace_toggles':workspace=='true'}
 	#---! deprecated: global work,workspace_timestamp,notebook_token,logging_state,logging_text,plotdat
 	global shared_album,shared_backrun,notebook_token
 	#---get the notebook token once and hold it in memory

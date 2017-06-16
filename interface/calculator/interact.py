@@ -254,7 +254,10 @@ class PictureAlbum:
 				lines.append('convert %s -thumbnail 500x500 %s'%(source_fn,thumbnail_fn))
 				#---! should we update here assuming that it is made correctly?
 				self.album['files'][name]['thumb'] = thumbnail_fn 
-		lines.append('echo "[STATUS] thumbnails are complete. you may need to wait for them or refresh"')
+		lines.append('echo "[STATUS] thumbnails are complete. hit \'reset calculator\' '+
+			'or refresh the page to get the new thumbnails. use the buttons on the '+
+			'\'picture selectors\' tile to view the image gallery."')
+		lines.extend(['rm script-make-thumbnails.sh','rm pid.ptdins.compute.lock'])
 		with open(os.path.join(settings.CALC,'script-make-thumbnails.sh'),'w') as fp:
 			fp.write('\n'.join(lines))
 		global logging_fn
