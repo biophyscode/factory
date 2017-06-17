@@ -257,7 +257,7 @@ class PictureAlbum:
 		lines.append('echo "[STATUS] thumbnails are complete. hit \'reset calculator\' '+
 			'or refresh the page to get the new thumbnails. use the buttons on the '+
 			'\'picture selectors\' tile to view the image gallery."')
-		lines.extend(['rm script-make-thumbnails.sh','rm pid.ptdins.compute.lock'])
+		lines.extend(['rm -f script-make-thumbnails.sh','rm -f pid.%s.compute.lock'%settings.NAME])
 		with open(os.path.join(settings.CALC,'script-make-thumbnails.sh'),'w') as fp:
 			fp.write('\n'.join(lines))
 		global logging_fn
