@@ -62,7 +62,11 @@ def backrun(**specs):
 			raise Exception('job is missing from `ps` so it probably failed. see %s'%log_fn)
 		pgid = int(ids[2])
 	print('[BACKRUN] pgid=%d kill_switch=%s'%(job.pid,stopper_fn))
-	term_command = '%spkill -%s -g %d'%('sudo ' if sudo else '',specs.get('killsig','TERM'),job.pid)
+	#---notes are passed through as comments
+	notes = specs.get('notes',None)
+	if notes: term_command = '%s\n'%notes
+	else: term_command = ''
+	term_command += '%spkill -%s -g %d'%('sudo ' if sudo else '',specs.get('killsig','TERM'),job.pid)
 	if specs.get('double_kill',False): term_command = term_command+'\n'+term_command
 	kill_switch = os.path.join(cwd,stopper_fn)
 	kill_switch_coda = specs.get('kill_switch_coda',None)

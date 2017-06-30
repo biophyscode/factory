@@ -24,10 +24,13 @@ import pwd,grp
 username = pwd.getpwuid(os.getuid())[0]
 uid = pwd.getpwnam(username).pw_uid
 #---! dangerous if the user is not in
-try: gid = grp.getgrnam('users').gr_gid
+try: 
+	groupname = 'users'
+	gid = grp.getgrnam(groupname).gr_gid
 except: 
-	try: gid = grp.getgrnam('everyone').gr_gid
-	except: raise Exception('cannot get the group')
+	groupname = 'everyone'
+	try: gid = grp.getgrnam(groupname).gr_gid
+	except: raise Exception('cannot get the group. we tried "users" and "everyone"')
 
 ###---CONNECT PROCEDURE PORTED FROM original FACTORY
 
@@ -181,9 +184,11 @@ def connect_single(connection_name,**specs):
 	#---if there is a public dictionary and we receive the "public" flag from make we serve public site
 	if specs.get('public',None):
 		site_port = specs['public'].get('port',8000)
-		settings_custom['NOTEBOOK_IP'] = specs['public']['notebook_ip']
+		#---the notebook IP for django must be the public hostname, however in the get_public_ports function
+		#---...we have an internal notebook_hostname for users who have a router
+		settings_custom['NOTEBOOK_IP'] = specs['public'].get('hostname')
 		settings_custom['NOTEBOOK_PORT'] = specs['public'].get('notebook_port',site_port+1)
-		settings_custom['extra_allowed_hosts'] = list(set(['localhost']+specs['public'].get('hostnames',[])))
+		settings_custom['extra_allowed_hosts'] = list(set(['localhost']+[specs['public'].get('hostname',[])]))
 	#---serve locally
 	else:
 		#---note that notebook ports are always one higher than the site port
@@ -512,7 +517,10 @@ def check_port(port,strict=False):
 	except socket.error as e: 
 		free = False
 		if strict: raise Exception('port %d is not free: %s'%(port,str(e)))
-		else: print('[WARNING] port %d still occupied'%port)
+		else: 
+			print('[WARNING] port %d still occupied'%port)
+			raise Exception('???')
+			import ipdb;ipdb.set_trace()
 	s.close()
 	return free
 
@@ -526,7 +534,9 @@ def start_site(name,port,public=False,sudo=False):
 	#---if public we require an override port so that users are careful
 	if public:
 		public_details = get_public_ports(name)
-		port,user,group = [public_details[k] for k in ['port_site','user','group']]
+		port = public_details['port_site']
+		#---previously got user/group from the public dictionary but now we just use the current user
+		user,group = username,groupname
 	check_port(port)
 	#---for some reason you have to KILL not TERM the runserver
 	#---! replace runserver with something more appropriate? a real server?
@@ -543,7 +553,7 @@ def start_site(name,port,public=False,sudo=False):
 		auth_fn = os.path.join('site',name,name,'wsgi_auth.py')
 		if os.path.isfile(auth_fn): cmd += ' --auth-user-script=%s'%auth_fn
 	backrun(cmd=cmd,log=log,stopper=lock,killsig='KILL',sudo=sudo,
-		scripted=False,kill_switch_coda='rm %s'%lock)
+		scripted=False,kill_switch_coda='rm %s'%lock,notes=('# factory run is public' if public else None))
 	if public: chown_user(log)
 	return lock,log
 
@@ -558,7 +568,8 @@ def start_cluster(name,public=False,sudo=False):
 	#---cluster never requires sudo but we require sudo to run publicly so we pass it along
 	#---! run the cluster as the user when running public?
 	backrun(cmd='python -u mill/cluster_start.py %s'%lock,
-		log=log,stopper=lock,killsig='INT',scripted=False,sudo=sudo)
+		log=log,stopper=lock,killsig='INT',scripted=False,sudo=sudo,
+		notes=('# factory run is public' if public else None))
 	if sudo: chown_user(log)
 	return lock,log
 
@@ -590,19 +601,21 @@ def get_public_ports(name):
 	#if not os.geteuid()==0:
 	#	raise Exception('you must run public as sudo!')
 	#---collect details from the connection
-	reqs = 'port user group hostnames notebook_ip'.split()
+	reqs = 'port hostname'.split()
 	toc  = collect_connections(name)
 	if not toc[name].get('public',None): raise Exception('need "public" for connection %s'%name)
 	public_details = toc[name]['public']
 	missing_keys = [i for i in reqs if i not in public_details]
 	if any(missing_keys):
 		raise Exception('missing keys from connection: %s'%missing_keys)
-	user,group = [public_details[i] for i in ['user','group']]
+	#---previously set user and group manually in the public dictionary but now we detect it
+	user,group = username,groupname
 	port_site = public_details['port']
 	port_notebook = public_details.get('notebook_port',port_site+1)
-	notebook_ip = public_details.get('notebook_ip','localhost')
+	notebook_ip = public_details.get('notebook_hostname',public_details.get('hostname','localhost'))
 	details = dict(user=user,group=group,port_notebook=port_notebook,
-		port_site=port_site,notebook_ip=notebook_ip)
+		port_site=port_site,notebook_ip=notebook_ip,
+		jupyter_localhost=toc[name]['public'].get('jupyter_localhost',False))
 	return details
 
 def start_notebook(name,port,public=False,sudo=False):
@@ -631,16 +644,17 @@ def start_notebook(name,port,public=False,sudo=False):
 			port,os.path.join(os.getcwd(),'calc',name))
 	#---note that without zeroing port-retries, jupyter just tries random ports nearby (which is bad)
 	else: 
-		username = public_details['user']
 		#---! unsetting this variable because some crazy run/user error
 		if 'XDG_RUNTIME_DIR' in os.environ: del os.environ['XDG_RUNTIME_DIR']
 		cmd = (('sudo -i -u %s '%username if sudo else '')+'%s '%(
 			os.path.join(os.getcwd(),'env/envs/py2/bin/jupyter-notebook'))+
 			('--user=%s '%username if sudo else ' ')+'--port-retries=0 '+
-			'--port=%d --no-browser --ip="%s" --notebook-dir="%s"'%(port,notebook_ip,
+			'--port=%d --no-browser --ip="%s" --notebook-dir="%s"'%(port,
+				notebook_ip if not public_details.get('jupyter_localhost',False) else 'localhost',
 				os.path.join(os.getcwd(),'calc',name)))
 	backrun(cmd=cmd,log=log,stopper=lock,killsig='TERM',
-		scripted=False,kill_switch_coda='rm %s'%lock,sudo=sudo)
+		scripted=False,kill_switch_coda='rm %s'%lock,sudo=sudo,
+		notes=('# factory run is public' if public else None))
 	if sudo: chown_user(log)
 	#---note that the calling function should make sure the notebook started
 	return lock,log
@@ -650,8 +664,15 @@ def run(name,public=False):
 	"""
 	#---start the site first before starting the cluster
 	toc  = collect_connections(name)
-	site_port = toc[name].get('port',8000)
-	nb_port = site_port + 1
+	if not public:
+		#---local runs always use the next port for the notebook
+		site_port = toc[name].get('port',8000)
+		nb_port = site_port + 1
+	else:
+		#---get ports for public run before checking them
+		site_port = toc[name].get('public',{}).get('port',8000)
+		nb_port = toc[name].get('public',{}).get('notebook_port',site_port+1)
+	#---check the ports before continuing
 	check_port(site_port)
 	check_port(nb_port)
 	lock_site,log_site = start_site(name,site_port,public=public)
@@ -678,7 +699,7 @@ def run(name,public=False):
 	#---report the status to the user
 	url = 'http://%s:%d'%('localhost',site_port)
 	if public:
-		try: url = 'http://%s:%d'%(toc[name]['public']['hostnames'][0],toc[name]['public']['port'])
+		try: url = 'http://%s:%d'%(toc[name]['public']['hostname'],toc[name]['public']['port'])
 		except: pass
 	print('[STATUS] serving from:  %s'%url)
 
@@ -715,10 +736,16 @@ def shutdown(name=None,public=False):
 				if re.search('sudo',text,re.M+re.DOTALL):
 					raise Exception(
 						'found sudo in %s. use `shutdown <name> public`'%fn)
+	#---collecting ports that we need to check closed
 	toc  = collect_connections(name)
 	ports_need_closed = []
 	for name in names:
-		ports_need_closed.append(toc[name].get('port',8000))
+		#---for each name we check for a site pid file that says whether it is public or not
+		if (os.path.isfile('pid.%s.site.lock'%name) and 
+			re.search('factory run is public',open('pid.%s.site.lock'%name).read(),flags=re.M)):
+			ports_need_closed.append(toc[name].get('public',{}).get('port',8000))
+		#---if we cannot find the site pid file to check for public we assume local
+		else: ports_need_closed.append(toc[name].get('port',8000))
 		shutdown_stop_locked(name)
 	waits = 0
 	while True:
@@ -758,5 +785,5 @@ def show_running_factories():
 	try: bash(cmd)
 	except: print('[NOTE] no processes found using bash command: `%s`'%cmd)
 
-#---alias for the background job inspector
+#---alias for the background jobs
 ps = show_running_factories
