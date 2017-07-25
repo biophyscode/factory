@@ -366,6 +366,8 @@ def make_yaml_file(request):
 	new_meta['calculations'] = {'protein_rmsd':{'uptype':'simulation',
 		'slice_name':'current','group':'protein','collections':('all')}}
 	#---no need to add plots because they are all autodetected and default to calculations in the metadata
+	if not os.path.exists(os.path.join(settings.CALC,'calcs','specs')):
+		os.makedirs(os.path.join(settings.CALC,'calcs','specs'))
 	with open(os.path.join(settings.CALC,'calcs','specs',master_autogen_meta_fn),'w') as fp:
 		fp.write(yaml.safe_dump(new_meta))
 	return view_redirector(request)	
