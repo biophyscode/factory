@@ -188,7 +188,13 @@ def connect_single(connection_name,**specs):
 		#---...we have an internal notebook_hostname for users who have a router
 		settings_custom['NOTEBOOK_IP'] = specs['public'].get('hostname')
 		settings_custom['NOTEBOOK_PORT'] = specs['public'].get('notebook_port',site_port+1)
-		settings_custom['extra_allowed_hosts'] = list(set(['localhost']+[specs['public'].get('hostname',[])]))
+		if 'hostname' not in specs['public']:
+			raise Exception('for public deployment you must add the hostname to the connection')
+		hostnames = ['localhost']
+		if type(specs['public']['hostname']) in str_types: hostnames.append(specs['public']['hostname'])
+		elif type(specs['public']['hostname'])==list: hostnames.extend(specs['public']['hostnames'])
+		else: raise Exception('cannot parse hostname')
+		settings_custom['extra_allowed_hosts'] = list(set(hostnames))
 	#---serve locally
 	else:
 		#---note that notebook ports are always one higher than the site port
