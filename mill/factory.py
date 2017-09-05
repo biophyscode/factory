@@ -524,9 +524,8 @@ def check_port(port,strict=False):
 		free = False
 		if strict: raise Exception('port %d is not free: %s'%(port,str(e)))
 		else: 
-			print('[WARNING] port %d still occupied'%port)
-			raise Exception('???')
-			import ipdb;ipdb.set_trace()
+			raise Exception('port %d is occupied'%port)
+
 	s.close()
 	return free
 
