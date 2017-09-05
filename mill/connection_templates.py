@@ -17,14 +17,17 @@ demo:
   post_spot: data/PROJECT_NAME/post
   plot_spot: data/PROJECT_NAME/plot
   simulation_spot: data/PROJECT_NAME/sims
+  # serve the factory by running "make connect <name> public" and later "make run <name> public"
   public:
-    port: 2000
-    notebook_port: 2001
-    notebook_ip: 'green.seas.upenn.edu'
-    hostnames: ['green.seas.upenn.edu']
-    user: ryb
-    group: users
-    credentials: {'super':'secret'}
+    # public port
+    port: 8006
+    # separate port for the notebook
+    notebook_port: 8007
+    # define notebook_hostname if you are behind a router
+    # provide the IP or web address
+    hostname: "000.000.00.00"
+    # a dictionary of username,password key,value pairs for basic auth
+    credentials: {'talking':'heads'}
   # import previous data or point omnicalc to new simulations, each of which is called a "spot"
   # note that prepared slices from other integrators e.g. NAMD are imported via post with no naming rules
   spots:
