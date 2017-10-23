@@ -94,7 +94,7 @@ def set_config(*args,**kwargs):
 	This was adapted from the automacs.runner.acme version to be more generic.
 	"""
 	config_toc = {'species':'single','anaconda_location':'single','automacs':'single','omnicalc':'single',
-		'nprocs':'single','activate_env':'single','setup_stamp':'single'}
+		'nprocs':'single','activate_env':'single','setup_stamp':'single','reqs_conda':'list','reqs_pip':'list'}
 	if len(args)>=2: what,args = args[0],args[1:]
 	else: what = None
 	if what and what not in config_toc: raise Exception('the argument to `make set` must be in %s'%config_toc.keys())
@@ -103,13 +103,16 @@ def set_config(*args,**kwargs):
 			if len(args)<1: raise Exception('must have an argument to set config %s'%what)
 			elif len(args)>1: raise Exception('too many arguments for singleton setting %s: %s'%(what,args))
 			add_config(what,value=args[0],many=False)
-		else: raise Exception('DEV')
+		elif config_toc[what] == 'list':
+			if len(args)<1: raise Exception('must have an argument to set config %s'%what)
+			else: add_config(what,value=list(args),many=True)
+		else: raise Exception('unclear entry %s'%config_toc[what])
 	if kwargs:
 		invalids = [i for i in kwargs if i not in config_toc]
 		if invalids: raise Exception('invalid keys: %s'%invalids)
 		for key,val in kwargs.items():
 			if config_toc[key]=='single': add_config(key,value=val,many=False)
-			else: raise Exception('DEV')
+			else: raise Exception('cannot send list items via')
 	return
 
 def add_config(*args,**kwargs):
@@ -140,8 +143,8 @@ def add_config(*args,**kwargs):
 		#---disallow any redundancy even in a preexisting list
 		if len(list(set(exists)))!=len(exists): 
 			raise Exception('redundancy in settings list %s'%str(exists))
-		if value not in set(exists): 
-			exists.append(value)
+		if value not in list(set(exists)):
+			exists.extends(value)
 			setting_change = True
 			value = exists
 		else: return False
