@@ -17,7 +17,7 @@ class FactoryEnv:
 	Run things in a carefully-constructed environment.
 	"""
 
-	#---settings for different environments
+	#---default settings for different environments
 	meta = {
 		'virtualenv':{
 			'reqs':['mill/requirements_virtualenv.txt'],
@@ -188,7 +188,7 @@ class FactoryEnv:
 		if not anaconda_location: 
 			raise Exception('download anaconda and run `make set anaconda_location <path>`')
 		install_fn = abspath(anaconda_location)
-		if not os.path.isfile(install_fn): 
+		if not os.path.isfile(install_fn) and not (os.path.islink(install_fn) and not os.path.isdir(install_fn)):
 			raise Exception('cannot find %s. make sure you have a copy of anaconda there.'%install_fn+
 				'or run `make set anaconda_location=~/path/to/Miniconda3-latest-<architecture>.sh` '
 				'to use a different path.')
@@ -217,17 +217,20 @@ class FactoryEnv:
 		if self.use_python2:
 			self.loader_commands['env_activate'] = 'env/envs/py2/bin/activate py2'
 			self.source_cmd = 'source env/envs/py2/bin/activate py2'
-		#---! hard-coding the channel for MDAnalysis here.
-		#---! ...this is required because MDANalysis gives PyFPE_jbuf error if numpy is 1.12
-		#---! removed to avoid warning: 
-		#---! removed again because now we have the environment via yaml
-		#---! bash(self.source_cmd+' && conda config --add channels MDAnalysis')
-		for fn in self.reqs_conda:
+		#---we consult a conda YAML file and a PIP text list to install packages
+		#---default values are built into the class above but they can be overridden
+		config = read_config()
+		reqs_conda = config.get('reqs_conda',self.reqs_conda)
+		reqs_pip = config.get('reqs_pip',self.reqs_conda)
+		if type(reqs_conda)!=list: reqs_conda = [reqs_conda]
+		if type(reqs_pip)!=list: reqs_pip = [reqs_pip]
+		#---install from the conda requirements list followed by pip (for packages not available on conda)
+		for fn in reqs_conda:
 			print('[STATUS] installing packages via conda from %s'%fn)
 			#---we tell conda to ignore local user site-packages because version errors
 			bash(self.source_cmd+' && conda env update --file %s'%fn,
 				log='logs/log-anaconda-conda-%s'%os.path.basename(fn))
-		for fn in self.reqs_pip:
+		for fn in reqs_pip:
 			print('[STATUS] installing packages via pip from %s'%fn)
 			bash(self.source_cmd+' && pip install -r %s'%fn,
 				log='logs/log-anaconda-conda-%s'%os.path.basename(fn))
