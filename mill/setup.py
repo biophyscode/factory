@@ -221,7 +221,7 @@ class FactoryEnv:
 		#---default values are built into the class above but they can be overridden
 		config = read_config()
 		reqs_conda = config.get('reqs_conda',self.reqs_conda)
-		reqs_pip = config.get('reqs_pip',self.reqs_conda)
+		reqs_pip = config.get('reqs_pip',self.reqs_pip)
 		if type(reqs_conda)!=list: reqs_conda = [reqs_conda]
 		if type(reqs_pip)!=list: reqs_pip = [reqs_pip]
 		#---install from the conda requirements list followed by pip (for packages not available on conda)
