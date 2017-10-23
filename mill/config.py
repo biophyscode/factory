@@ -144,7 +144,7 @@ def add_config(*args,**kwargs):
 		if len(list(set(exists)))!=len(exists): 
 			raise Exception('redundancy in settings list %s'%str(exists))
 		if value not in list(set(exists)):
-			exists.extends(value)
+			exists.extend(value)
 			setting_change = True
 			value = exists
 		else: return False
