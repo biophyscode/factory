@@ -94,7 +94,8 @@ def set_config(*args,**kwargs):
 	This was adapted from the automacs.runner.acme version to be more generic.
 	"""
 	config_toc = {'species':'single','anaconda_location':'single','automacs':'single','omnicalc':'single',
-		'nprocs':'single','activate_env':'single','setup_stamp':'single','reqs_conda':'list','reqs_pip':'list'}
+		'nprocs':'single','activate_env':'single','setup_stamp':'single','reqs_conda':'list','reqs_pip':'list',
+		'commands':'list'}
 	if len(args)>=2: what,args = args[0],args[1:]
 	else: what = None
 	if what and what not in config_toc: raise Exception('the argument to `make set` must be in %s'%config_toc.keys())
