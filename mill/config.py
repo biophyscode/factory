@@ -92,28 +92,28 @@ def set_config(*args,**kwargs):
 	experiments. Since ``set`` is a python type, we make use of the config.py alias scheme to map this 
 	function to ``make set ...``.
 	This was adapted from the automacs.runner.acme version to be more generic.
+	Note that we have removed a check for specific keys so that users
 	"""
+	#---! note that the kwargs methods are basically broken for now. need tested/fixed!
 	config_toc = {'species':'single','anaconda_location':'single','automacs':'single','omnicalc':'single',
-		'nprocs':'single','activate_env':'single','setup_stamp':'single','reqs_conda':'list','reqs_pip':'list',
+		'nprocs':'single','activate_env':'single','setup_stamp':'single',
+		'reqs_conda':'list','reqs_pip':'list',
 		'commands':'list'}
 	if len(args)>=2: what,args = args[0],args[1:]
 	else: what = None
-	if what and what not in config_toc: raise Exception('the argument to `make set` must be in %s'%config_toc.keys())
-	if what:
-		if config_toc[what] == 'single':
+	if what!=None:
+		if config_toc.get(what,'single') == 'single':
 			if len(args)<1: raise Exception('must have an argument to set config %s'%what)
 			elif len(args)>1: raise Exception('too many arguments for singleton setting %s: %s'%(what,args))
 			add_config(what,value=args[0],many=False)
-		elif config_toc[what] == 'list':
+		elif config_toc.get(what,'single') == 'list':
 			if len(args)<1: raise Exception('must have an argument to set config %s'%what)
 			else: add_config(what,value=list(args),many=True)
 		else: raise Exception('unclear entry %s'%config_toc[what])
 	if kwargs:
-		invalids = [i for i in kwargs if i not in config_toc]
-		if invalids: raise Exception('invalid keys: %s'%invalids)
 		for key,val in kwargs.items():
-			if config_toc[key]=='single': add_config(key,value=val,many=False)
-			else: raise Exception('cannot send list items via')
+			if config_toc.get(key,'single')=='single': add_config(key,value=val,many=False)
+			else: raise Exception('cannot send list items via kwargs')
 	return
 
 def add_config(*args,**kwargs):
