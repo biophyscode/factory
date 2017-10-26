@@ -14,3 +14,6 @@ pack/
 site/
 cluster/
 interface/static/static_root
+docks/
+docker_builds/
+tests/
