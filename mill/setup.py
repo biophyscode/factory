@@ -198,7 +198,7 @@ class FactoryEnv:
 			bash(' && '.join([
 				'source env/bin/activate',
 				#---! very annoying anaconda errors so we update here on installation
-				'conda update',
+				'conda update conda',
 				'conda create python=2 -y -n py2'
 				]),log='logs/log-anaconda-env-py2')
 			#---we use the conda environment handler to avoid using the user site-packages in ~/.local
