@@ -274,7 +274,8 @@ def renew():
 	"""
 	print('\n'+fab('HOW TO SETUP/RENEW YOUR ENVIRONMENT','cyan_black'))
 	cmds = [
-		('set up anaconda on linux/OSX (download the appropriate Miniconda to ~/libs first, or alter the path below)',[
+		('set up anaconda on linux/OSX (download the appropriate Miniconda to '+
+			'~/libs first, or alter the path below)',[
 			'make nuke sure',
 			'make set species anaconda',
 			'make set anaconda_location=~/libs/Miniconda3-latest-Linux-x86_64.sh',
@@ -291,7 +292,20 @@ def renew():
 			'make setup',]),
 		('use a template to make a new project/connection',[
 			'make template demo project_name=demo connection_file=demo.yaml',
-			'make connect demo']),]
+			'make connect demo']),
+		('set up the factory to run test sets '+
+			'(note that you must download VMD and Miniconda sources and set their paths correctly)',[
+			'git clone http://github.com/bradleyrp/docks',
+			'git clone http://github.com/bradleyrp/factory-testset tests',
+			#---! it would be nice to add to the commands
+			'make set commands mill/setup.py mill/shipping.py mill/factory.py docks/docks.py',
+			'make set docks_config tests/docker.py',
+			#---! same path as the docker_config
+			'make set docks_testset_sources testset.py',
+			'make set location_vmd_source ~/libs/vmd-1.9.1.bin.LINUXAMD64.opengl.tar',
+			'make set location_miniconda ~/libs/Miniconda3-latest-Linux-x86_64.sh',
+			'make docker basic',
+			'make test factory setup',]),]
 	for k,v in cmds: print('\n[NOTE] to install %s, use:\n\n%s\n'%(k,' && '.join(v)))
 
 def init(refresh=False):
