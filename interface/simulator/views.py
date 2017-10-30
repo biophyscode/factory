@@ -139,7 +139,7 @@ def detail_simulation(request,id):
 		preptext = bash('make prep_json',cwd=settings.SIMSPOT+sim.path,catch=True)
 		expts = json.loads(re.search('^NOTE: (.*?)$',preptext['stdout'],flags=re.M).group(1))
 		#---! currently only works for run
-		for key in ['metarun','quick']: del expts[key]
+		for key in ['quick']: del expts[key]
 		outgoing.update(expts=expts)
 
 	#---after kickstart and prepping the experiment we are now ready to customize
@@ -161,7 +161,9 @@ def detail_simulation(request,id):
 				# !!! hello this is also a hack
 				#settings_blocks['chooser?'] = {'settings':{'choosy':'incoming_sources'},'multi':[]}
 			#---! metarun development goes here
-			else: return HttpResponse('metarun is under development')
+			else:
+
+				return HttpResponse('metarun is under development')
 			form = SimulationSettingsForm(initial={'settings_blocks':settings_blocks})
 			#---prepare fieldsets as a loop over the blocks of settings, one per run
 			outgoing['fieldsets'] = [FieldSet(form,[settings_name+'|'+key 

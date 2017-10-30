@@ -20,7 +20,8 @@ def prepare_simulation(sim):
 	"""
 	if os.path.isfile(settings.SIMSPOT+sim.path): 
 		return HttpResponse('control failure: path exists: %s'%settings.SIMSPOT+sim.path)
-	bash('git clone %s %s'%(settings.AUTOMACS,sim.path),cwd=settings.SIMSPOT)
+	branch = ' -b %s '%settings.AUTOMACS_BRANCH if hasattr(settings,'AUTOMACS_BRANCH') else ''
+	bash('git clone %s %s%s'%(settings.AUTOMACS,branch,sim.path),cwd=settings.SIMSPOT)
 	#---always run make after clone otherwise config.py is absent. we have to catch or bash error.
 	bash('make',cwd=settings.SIMSPOT+sim.path,catch=True)
 	#---copy a user-supplied gromacs_config.py if one is available
