@@ -647,22 +647,24 @@ def start_notebook(name,port,public=False,sudo=False):
 	#---note that TERM safely closes the notbook server
 	lock = 'pid.%s.notebook.lock'%name
 	log = log_notebook%name
+	#---higher rates
+	rate_cmd = '--NotebookApp.iopub_data_rate_limit=10000000'
 	#---if you want django data in IPython, use:
 	#---...'python site/%s/manage.py shell_plus --notebook --no-browser'%name,
 	#---! we never figured out how to set ports, other jupyter settings, with shell_plus
 	#---! jupyter doesn't recommend allowing root but we do so here so you can call
 	#---! `sudo make run <name> public` which prevents us from having to add sudo ourselves
 	if not public:
-		cmd = 'jupyter notebook --no-browser --port %d --port-retries=0 --notebook-dir="%s"'%(
-			port,os.path.join(os.getcwd(),'calc',name))
+		cmd = 'jupyter notebook --no-browser --port %d --port-retries=0 %s--notebook-dir="%s"'%(
+			port,('%s '%rate_cmd if rate_cmd else ''),os.path.join(os.getcwd(),'calc',name))
 	#---note that without zeroing port-retries, jupyter just tries random ports nearby (which is bad)
 	else: 
 		#---! unsetting this variable because some crazy run/user error
 		if 'XDG_RUNTIME_DIR' in os.environ: del os.environ['XDG_RUNTIME_DIR']
 		cmd = (('sudo -i -u %s '%username if sudo else '')+'%s '%(
 			os.path.join(os.getcwd(),'env/envs/py2/bin/jupyter-notebook'))+
-			('--user=%s '%username if sudo else '')+'--port-retries=0 '+
-			'--port=%d --no-browser --ip="%s" --notebook-dir="%s"'%(port,
+			('--user=%s '%username if sudo else '')+(' %s '%rate_cmd if rate_cmd else '')+
+			'--port-retries=0 '+'--port=%d --no-browser --ip="%s" --notebook-dir="%s"'%(port,
 				notebook_ip if not public_details.get('jupyter_localhost',False) else 'localhost',
 				os.path.join(os.getcwd(),'calc',name)))
 	backrun(cmd=cmd,log=log,stopper=lock,killsig='TERM',
