@@ -385,9 +385,9 @@ def connect_single(connection_name,**specs):
 	#---pass a list of meta_filters through (can be list of strings which are paths or globs)
 	calc_meta_filters = specs.get('calc_meta_filters',None)
 	if calc_meta_filters:
+		bash('make unset meta_filter',cwd=specs['calc'])
 		for filt in calc_meta_filters:
 			#---note that meta_filter is turned into a list in config.py in omnicalc
-			bash('make unset meta_filter',cwd=specs['calc'])
 			bash('make set meta_filter="%s"'%filt,cwd=specs['calc'])
 
 	#---configure omnicalc 
