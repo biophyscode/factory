@@ -17,3 +17,4 @@ interface/static/static_root
 docks/
 builds/
 tests/
+report-*
