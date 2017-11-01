@@ -20,7 +20,8 @@ def prepare_simulation(sim):
 	"""
 	if os.path.isfile(settings.SIMSPOT+sim.path): 
 		return HttpResponse('control failure: path exists: %s'%settings.SIMSPOT+sim.path)
-	bash('git clone %s %s'%(settings.AUTOMACS,sim.path),cwd=settings.SIMSPOT)
+	branch = ' -b %s '%settings.AUTOMACS_BRANCH if hasattr(settings,'AUTOMACS_BRANCH') else ''
+	bash('git clone %s %s%s'%(settings.AUTOMACS,branch,sim.path),cwd=settings.SIMSPOT)
 	#---always run make after clone otherwise config.py is absent. we have to catch or bash error.
 	bash('make',cwd=settings.SIMSPOT+sim.path,catch=True)
 	#---copy a user-supplied gromacs_config.py if one is available
@@ -44,6 +45,7 @@ def make_setup(req,id_sim,id_kick):
 	#---note that we run the setup command without checking the text. this assumes the Kickstart
 	#---...table exactly matches the objects in the automacs amx.kickstarts module
 	print('[STATUS] running `make setup %s`'%kick.name)
+	#---! getting mysterious bash errors here?
 	bash('make setup %s'%kick.name,cwd=settings.SIMSPOT+sim.path)
 	#---update the kickstart flag in the simulation. this is irreversible; it prevents further kickstarting
 	sim.kickstart = kick.name
@@ -65,6 +67,7 @@ def make_prep(req,id_sim,expt_name):
 
 def make_run(expt,cwd):
 	"""
+	Prepare a run.
 	"""
 	#---! the target, expt.json, is hard-coded
 	expt_fn = 'expt.json'
@@ -76,6 +79,35 @@ def make_run(expt,cwd):
 	with open(os.path.join(settings.SIMSPOT,cwd,expt_fn),'w') as fp: fp.write(json.dumps(expt_raw))
 	#---prepare the JSON request to the cluster
 	script = '\n'.join(['make run'])
+	req_text = json.dumps({'bash':script,'cwd':settings.SIMSPOT+cwd,
+		'stopper':os.path.join(settings.SIMSPOT,cwd,'stop-job.sh')})
+	#---factory has to assign a job name because the cluster is ambivalent
+	stamp = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
+	stamp_base = 'simulator.%s'%stamp
+	submit_fn = '%s.req'%stamp_base
+	#---write the cluster submission script to the cluster folder
+	with open(os.path.join(settings.CLUSTER,submit_fn),'w') as fp: fp.write(req_text)
+	#---! repeat for posterity
+	with open(os.path.join(settings.CLUSTER,submit_fn+'.sub'),'w') as fp: fp.write(req_text)
+	#---return the stamp only
+	return stamp_base
+
+def make_metarun(expt,cwd):
+	"""
+	Prepare a meta run.
+	"""
+	#---process all new settings into JSON files
+	keys = sorted(expt.keys(),key=lambda x:int(re.match('^settings, step (.+)$',x).group(1)))
+	for knum,key in enumerate(keys):
+		expt_fn = 'expt_%d.json'%(knum+1)
+		#---read the expt.json since we only want to replace the settings
+		with open(os.path.join(settings.SIMSPOT,cwd,expt_fn)) as fp: expt_raw = json.loads(fp.read())
+		#---reconstruct the settings so that it can be read by yamlb later on
+		new_settings = '\n'.join(['%s: %s'%(key,val) for key,val in expt[key].items()])
+		expt_raw.update(settings=new_settings)
+		with open(os.path.join(settings.SIMSPOT,cwd,expt_fn),'w') as fp: fp.write(json.dumps(expt_raw))
+	#---prepare the JSON request to the cluster
+	script = '\n'.join(['make metarun'])
 	req_text = json.dumps({'bash':script,'cwd':settings.SIMSPOT+cwd,
 		'stopper':os.path.join(settings.SIMSPOT,cwd,'stop-job.sh')})
 	#---factory has to assign a job name because the cluster is ambivalent

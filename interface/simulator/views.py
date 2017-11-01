@@ -8,7 +8,7 @@ from .forms import *
 from .models import *
 from interact import *
 from tools import import_remote,yamlb
-import os,json
+import os,json,glob
 
 from calculator.interact import get_notebook_token
 
@@ -139,7 +139,7 @@ def detail_simulation(request,id):
 		preptext = bash('make prep_json',cwd=settings.SIMSPOT+sim.path,catch=True)
 		expts = json.loads(re.search('^NOTE: (.*?)$',preptext['stdout'],flags=re.M).group(1))
 		#---! currently only works for run
-		for key in ['metarun','quick']: del expts[key]
+		for key in ['quick']: del expts[key]
 		outgoing.update(expts=expts)
 
 	#---after kickstart and prepping the experiment we are now ready to customize
@@ -148,20 +148,40 @@ def detail_simulation(request,id):
 		if request.method=='GET':
 			outgoing.update(status='kickstarted with "%s" and prepared experiment "%s"'%
 				(sim.kickstart,sim.experiment))
-			with open(os.path.join(settings.SIMSPOT,sim.path,'expt.json')) as fp:
-				expt = json.load(fp)
-				outgoing.update(settings_raw=str(yamlb(expt['settings'])))
 			#---block syntax from yamlb 
 			regex_block_standard = r"^\s*([^\n]*?)\s*(?:\s*:\s*\|)\s*([^\n]*?)\n(\s+)(.*?)\n(?!\3)"
-			if 'metarun' not in expt:
+			#---checking for expt.json will help determine if this is a metarun
+			#---! is this strict enough?
+			settings_blocks = {}
+			run_expt_fn = os.path.join(settings.SIMSPOT,sim.path,'expt.json')
+			run_expts = sorted(glob.glob(os.path.join(settings.SIMSPOT,sim.path,'expt_*.json')),
+				key=lambda x:int(re.match('^expt_(.+)\.json$',os.path.basename(x)).group(1)))
+			if run_expts!=[] and os.path.isfile(run_expt_fn):
+				raise Exception(
+					'found expt.json and %s hence this appears to be both a run and metarun'%run_expts)
+			#---process a run
+			elif os.path.isfile(run_expt_fn):
+				with open(run_expt_fn) as fp:
+					expt = json.load(fp)
+					outgoing.update(settings_raw=str(yamlb(expt['settings'])))
 				#---a single settings block for a standard run
 				settings_blocks = {'settings':{'settings':yamlb(expt['settings']),
 					'multi':[i[0] for i in re.findall(regex_block_standard,expt['settings'],
 					flags=re.M+re.DOTALL)]}}
-				# !!! hello this is also a hack
-				#settings_blocks['chooser?'] = {'settings':{'choosy':'incoming_sources'},'multi':[]}
-			#---! metarun development goes here
-			else: return HttpResponse('metarun is under development')
+			elif run_expts!=[]:
+				settings_blocks = {}
+				#---parse each JSON experiment file and add to outgoing
+				#---! note that because of the fieldsets in the template the steps might be out of order
+				#---! ...however this is difficult to fix. it will require a filter.
+				for mnum,fn in enumerate(run_expts):
+					with open(fn) as fp:
+						expt = json.load(fp)
+						outgoing.update(**{'settings_raw_%d'%mnum:str(yamlb(expt['settings']))})
+					settings_blocks['settings, step %d'%(mnum+1)] = {
+						'settings':yamlb(expt['settings']),
+						'multi':[i[0] for i in re.findall(regex_block_standard,expt['settings'],
+						flags=re.M+re.DOTALL)]}
+			else: raise Exception('failed to find the correct experiment JSON files')
 			form = SimulationSettingsForm(initial={'settings_blocks':settings_blocks})
 			#---prepare fieldsets as a loop over the blocks of settings, one per run
 			outgoing['fieldsets'] = [FieldSet(form,[settings_name+'|'+key 
@@ -184,12 +204,13 @@ def detail_simulation(request,id):
 				unpacked_form = [(i.split('|'),j) for i,j in form.data.items() if '|' in i]
 				settings_blocks = dict([(k[0],{}) for k,v in unpacked_form])
 				for (run_name,key),val in unpacked_form: settings_blocks[run_name][key] = val
+				#---note that a one-block run is a standard run (not a metarun)
 				if len(settings_blocks)==1:
-					#---note that a one-block run is a standard run (not a metarun)
 					submit_fn = make_run(expt=settings_blocks['settings'],cwd=sim.path)
-					sim.status = 'submitted:%s'%submit_fn
-					sim.save()
-				else: return HttpResponse('metarun is under development')
+				else:
+					submit_fn = make_metarun(expt=settings_blocks,cwd=sim.path)
+				sim.status = 'submitted:%s'%submit_fn
+				sim.save()
 				#---process any incoming sources
 				pks = form_source.cleaned_data['source']
 				#---! implement input folders here at some point, perhaps using an alternate data structure

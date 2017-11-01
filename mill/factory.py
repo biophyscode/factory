@@ -186,15 +186,17 @@ def connect_single(connection_name,**specs):
 		site_port = specs['public'].get('port',8000)
 		#---the notebook IP for django must be the public hostname, however in the get_public_ports function
 		#---...we have an internal notebook_hostname for users who have a router
-		settings_custom['NOTEBOOK_IP'] = specs['public'].get('hostname')
-		settings_custom['NOTEBOOK_PORT'] = specs['public'].get('notebook_port',site_port+1)
 		if 'hostname' not in specs['public']:
 			raise Exception('for public deployment you must add the hostname to the connection')
-		hostnames = ['localhost']
-		if type(specs['public']['hostname']) in str_types: hostnames.append(specs['public']['hostname'])
-		elif type(specs['public']['hostname'])==list: hostnames.extend(specs['public']['hostnames'])
+		#---the hostnames are a list passed to ALLOWED_HOSTS starting with localhost
+		if type(specs['public']['hostname']) in str_types: hostnames = [specs['public']['hostname']]
+		elif type(specs['public']['hostname'])==list: hostnames = specs['public']['hostname']
 		else: raise Exception('cannot parse hostname')
+		hostnames.append('localhost')
 		settings_custom['extra_allowed_hosts'] = list(set(hostnames))
+		#---the first hostname is the primary one
+		settings_custom['NOTEBOOK_IP'] = hostnames[0]
+		settings_custom['NOTEBOOK_PORT'] = specs['public'].get('notebook_port',site_port+1)
 	#---serve locally
 	else:
 		#---note that notebook ports are always one higher than the site port
@@ -225,6 +227,10 @@ def connect_single(connection_name,**specs):
 		'`make set automacs=http://github.com/someone/automacs`.' 
 	if not automacs_upstream: 
 		raise Exception('need automacs in config.py for factory or the connection. '+msg)
+	#---! automacs_upstream is not being used?
+	settings_custom['AUTOMACS'] = automacs_upstream
+	automacs_branch = config.get('automacs_branch',None)
+	if automacs_branch != None: settings_custom['AUTOMACS_BRANCH'] = automacs_branch
 	omnicalc_upstream = specs.get('omnicalc',config.get('omnicalc',None))
 	if not omnicalc_upstream: 
 		raise Exception('need omnicalc in config.py for factory or the connection. '+msg)
@@ -260,7 +266,7 @@ def connect_single(connection_name,**specs):
 		fp.write(project_settings_addendum+database_path_change)
 		#---only use the development code if the flag is set and we are not running public
 		if specs.get('development',True) and not specs.get('public',False):
-			fp.write('#---use the development copy of the code\n'+
+			fp.write('\n#---use the development copy of the code\n'+
 				'import sys;sys.path.insert(0,os.path.join(os.getcwd(),"%s"))'%django_source) 
 		#---one more thing: custom settings specify static paths for local or public serve
 		#if specs.get('public',None):
@@ -618,6 +624,8 @@ def get_public_ports(name):
 	port_site = public_details['port']
 	port_notebook = public_details.get('notebook_port',port_site+1)
 	notebook_ip = public_details.get('notebook_hostname',public_details.get('hostname','localhost'))
+	#---if we have a list of hostnames then the first is the primary
+	if type(notebook_ip) not in str_types: notebook_ip = notebook_ip[0]
 	details = dict(user=user,group=group,port_notebook=port_notebook,
 		port_site=port_site,notebook_ip=notebook_ip,
 		jupyter_localhost=toc[name]['public'].get('jupyter_localhost',False))
@@ -653,7 +661,7 @@ def start_notebook(name,port,public=False,sudo=False):
 		if 'XDG_RUNTIME_DIR' in os.environ: del os.environ['XDG_RUNTIME_DIR']
 		cmd = (('sudo -i -u %s '%username if sudo else '')+'%s '%(
 			os.path.join(os.getcwd(),'env/envs/py2/bin/jupyter-notebook'))+
-			('--user=%s '%username if sudo else ' ')+'--port-retries=0 '+
+			('--user=%s '%username if sudo else '')+'--port-retries=0 '+
 			'--port=%d --no-browser --ip="%s" --notebook-dir="%s"'%(port,
 				notebook_ip if not public_details.get('jupyter_localhost',False) else 'localhost',
 				os.path.join(os.getcwd(),'calc',name)))
@@ -704,9 +712,13 @@ def run(name,public=False):
 	#---report the status to the user
 	url = 'http://%s:%d'%('localhost',site_port)
 	if public:
-		try: url = 'http://%s:%d'%(toc[name]['public']['hostname'],toc[name]['public']['port'])
+		try:
+			this_hostnames = toc[name]['public']['hostname']
+			this_hostnames = [this_hostnames] if type(this_hostnames) in str_types else this_hostnames
+			for this_hostname in this_hostnames:
+				url = 'http://%s:%d'%(this_hostname,toc[name]['public']['port'])
+				print('[STATUS] serving from: %s'%url)
 		except: pass
-	print('[STATUS] serving from:  %s'%url)
 
 def shutdown_stop_locked(name):
 	"""
