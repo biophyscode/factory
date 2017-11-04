@@ -75,7 +75,7 @@ def make_run(expt,cwd):
 	with open(os.path.join(settings.SIMSPOT,cwd,expt_fn)) as fp: expt_raw = json.loads(fp.read())
 	#---reconstruct the settings so that it can be read by yamlb later on
 	new_settings = '\n'.join(['%s: %s'%(key,val) for key,val in expt.items()])
-	expt_raw.update(settings=new_settings)
+	expt_raw.update(settings_overrides=new_settings)
 	with open(os.path.join(settings.SIMSPOT,cwd,expt_fn),'w') as fp: fp.write(json.dumps(expt_raw))
 	#---prepare the JSON request to the cluster
 	script = '\n'.join(['make run'])
@@ -104,7 +104,7 @@ def make_metarun(expt,cwd):
 		with open(os.path.join(settings.SIMSPOT,cwd,expt_fn)) as fp: expt_raw = json.loads(fp.read())
 		#---reconstruct the settings so that it can be read by yamlb later on
 		new_settings = '\n'.join(['%s: %s'%(key,val) for key,val in expt[key].items()])
-		expt_raw.update(settings=new_settings)
+		expt_raw.update(settings_overrides=new_settings)
 		with open(os.path.join(settings.SIMSPOT,cwd,expt_fn),'w') as fp: fp.write(json.dumps(expt_raw))
 	#---prepare the JSON request to the cluster
 	script = '\n'.join(['make metarun'])

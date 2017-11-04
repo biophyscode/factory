@@ -94,6 +94,14 @@ def export_notebook(plotname):
 	chunks = [chunks[0]]+[chunks[i]+chunks[i+1] for i in range(1,len(chunks),2)]
 	for chunk in chunks:
 		nb['cells'].append(nbf.v4.new_code_cell(re.sub('\t',' '*tab_width,chunk.strip())))
+	#---check if this is an autoplot
+	#---! currently deprecated because we do not have the workspace 
+	#is_autoplot = work.plots.get(plotname,{}).get('autoplot',False)
+	#if is_autoplot:
+	#	nb['cells'].append(nbf.v4.new_code_cell(
+	#		r"status('[NOTE] this plot script uses the autoplot scheme')"+'\n'
+	#		r"status('[NOTE] load the data by running plotrun.loader()')"+'\n'
+	#		r"status('[NOTE] available plots: %s'%', '.join('%s()'%i for i in plotrun.plot_functions))"))
 	#---write the notebook
 	with open(os.path.join(cwd,dest),'w') as fp: nbf.write(nb,fp)
 
