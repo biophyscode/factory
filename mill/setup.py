@@ -217,8 +217,8 @@ class FactoryEnv:
 		Refresh the virtualenvironment.
 		"""
 		if self.use_python2:
-			self.loader_commands['env_activate'] = 'env/envs/py2/bin/activate py2'
-			self.source_cmd = 'source env/envs/py2/bin/activate py2'
+			self.loader_commands['env_activate'] = 'env/bin/activate py2'
+			self.source_cmd = 'source env/bin/activate py2'
 		#---we consult a conda YAML file and a PIP text list to install packages
 		#---default values are built into the class above but they can be overridden
 		config = read_config()
