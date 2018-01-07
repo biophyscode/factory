@@ -7,7 +7,7 @@ from django.http import JsonResponse
 from .models import *
 import nbformat as nbf
 
-from interact import make_bootstrap_tree,get_notebook_token,export_notebook
+from interact import make_bootstrap_tree,get_notebook_token
 from interact import FactoryWorkspace,PictureAlbum,FactoryBackrun
 from tools import bash
 
@@ -26,8 +26,7 @@ def make_tree_postdat(outgoing):
 	global shared_work
 	#---collect posts by basename, excluding the numbered part of the filenames
 	try: posts = shared_work.work.postdat.posts()
-	except:
-		return HttpResponse(str(shared_work))
+	except: return HttpResponse(str(shared_work))
 	base_names = sorted(set(map(lambda x:re.match('^(.*?)\.n',x).group(1),posts.keys())))
 	short_names = sorted(set([v.specs['slice']['short_name'] for k,v in posts.items()]))
 	posts_restruct = {}
@@ -45,6 +44,8 @@ def make_tree_postdat(outgoing):
 
 def make_tree_slices(outgoing):
 	"""Make a slices tree."""
+	#---! removed for compatibility with omnicalc development branch
+	return False
 	global shared_work
 	if shared_work.work.slices: slices_tree = json.dumps(
 		list(make_bootstrap_tree(shared_work.work.slices,floor=3)))
@@ -55,8 +56,9 @@ def make_tree_slices(outgoing):
 def make_tree_calculations(outgoing):
 	"""Expose workspace calculations as a tree."""
 	global shared_work
-	if shared_work.work.calcs:
-		calcs_tree_raw = list(make_bootstrap_tree(shared_work.work.calcs,floor=1))
+	if shared_work.work.metadata.calculations:
+		#---! high floor for compatibility with omnicalc development branch
+		calcs_tree_raw = list(make_bootstrap_tree(shared_work.work.metadata.calculations,floor=10))
 	else: calcs_tree_raw = []
 	for cc,c in enumerate(calcs_tree_raw): calcs_tree_raw[cc]['href'] = 'get_code/%s'%c['text']
 	calcs_tree = json.dumps(calcs_tree_raw)
@@ -66,49 +68,56 @@ def make_tree_calculations(outgoing):
 def make_tree_plots(outgoing):
 	"""Present plots as a tree."""
 	global shared_work
-	#---plots can come from a few different places: the plots dictionary, a plot file, or an interactive 
-	#---...notebook which comes from a plot script. note that plot items which are not found in the calcs
-	#---...folder will throw an error message
-	#---start with the plots in the workspace
-	plots_assembled = copy.deepcopy(shared_work.work.plots)
-	for plotname,plot in plots_assembled.items():
-		plot_fn = os.path.join(settings.CALC,'calcs','plot-%s.py'%plotname)
-		if not os.path.isfile(plot_fn):
-			plots_assembled[plotname] = {'details':copy.deepcopy(plot),
-				'ERROR missing plot script!':('this plot is not found in %s'
-				'however it is listed in the plots section of the metadata')%plot_fn}
-		else: plots_assembled[plotname] = {'details':copy.deepcopy(plot)}
-		plot_fn_interact = os.path.join(settings.CALC,'calcs','plot-%s.ipynb'%plotname)
-		if os.path.isfile(plot_fn_interact):
-			plots_assembled[plotname][os.path.basename(plot_fn_interact)] = (
-				'interactive plot generated on (UTC) %s'%
-				datetime.datetime.fromtimestamp(os.path.getmtime(plot_fn_interact)))
-	#---catch any plots not in the workspace
-	for fn in glob.glob(os.path.join(settings.CALC,'calcs','plot-*.py')):
-		plotname = re.match('^plot-(.+)\.py$',os.path.basename(fn)).group(1)
-		if plotname not in plots_assembled:
-			plots_assembled[plotname] = {'note: default plot':'this plot was found on disk but it has no '
-			'entry in the metadata. when it runs, it will use the corresponding entry from the `calculation` '
-			'entry in the metadata to figure out which simulations to plot.'}
-			#---! repetitive. add the interactive notebook if it's there
+	#! legacy mode is being refactored here
+	if False:
+		#---plots can come from a few different places: the plots dictionary, a plot file, or an interactive 
+		#---...notebook which comes from a plot script. note that plot items which are not found in the calcs
+		#---...folder will throw an error message
+		#---start with the plots in the workspace
+		plots_assembled = copy.deepcopy(shared_work.work.metadata.plots)
+		for plotname,plot in plots_assembled.items():
+			plot_fn = os.path.join(settings.CALC,'calcs','plot-%s.py'%plotname)
+			if not os.path.isfile(plot_fn):
+				plots_assembled[plotname] = {'details':copy.deepcopy(plot),
+					'ERROR missing plot script!':('this plot is not found in %s'
+					'however it is listed in the plots section of the metadata')%plot_fn}
+			else: plots_assembled[plotname] = {'details':copy.deepcopy(plot)}
 			plot_fn_interact = os.path.join(settings.CALC,'calcs','plot-%s.ipynb'%plotname)
 			if os.path.isfile(plot_fn_interact):
 				plots_assembled[plotname][os.path.basename(plot_fn_interact)] = (
 					'interactive plot generated on (UTC) %s'%
 					datetime.datetime.fromtimestamp(os.path.getmtime(plot_fn_interact)))
-	plots_tree_raw = list(make_bootstrap_tree(plots_assembled,floor=2))
+		#---catch any plots not in the workspace
+		for fn in glob.glob(os.path.join(settings.CALC,'calcs','plot-*.py')):
+			plotname = re.match('^plot-(.+)\.py$',os.path.basename(fn)).group(1)
+			if plotname not in plots_assembled:
+				plots_assembled[plotname] = {'note: default plot':'this plot was found on disk but it has no '
+				'entry in the metadata. when it runs, it will use the corresponding entry from the `calculation` '
+				'entry in the metadata to figure out which simulations to plot.'}
+				#---! repetitive. add the interactive notebook if it's there
+				plot_fn_interact = os.path.join(settings.CALC,'calcs','plot-%s.ipynb'%plotname)
+				if os.path.isfile(plot_fn_interact):
+					plots_assembled[plotname][os.path.basename(plot_fn_interact)] = (
+						'interactive plot generated on (UTC) %s'%
+						datetime.datetime.fromtimestamp(os.path.getmtime(plot_fn_interact)))
+	# plots come directly from the FactoryWorkspace
+	plots_assembled = dict([(k,k) for k in shared_work.plot_scripts])
+	#! omnicalc dev branch note. need lower levels or the bootstrap chokes
+	plots_tree_raw = list(make_bootstrap_tree(plots_assembled,floor=4))
+	# sorting by top-level keys
+	plots_tree_raw = sorted(plots_tree_raw,key=lambda x:x['text'])
 	for cc,c in enumerate(plots_tree_raw): 
 		#---suppress links if the file is missing. note the error message above should help
-		if os.path.isfile(os.path.join(settings.CALC,'calcs','plot-%s.py'%c['text'])):
-			plots_tree_raw[cc]['href'] = 'get_code/plot-%s'%c['text']
-		if os.path.isfile(os.path.join(settings.CALC,'calcs','plot-%s.ipynb'%c['text'])):
+		if os.path.isfile(os.path.join(settings.CALC,'calcs',c['text'])):
+			plots_tree_raw[cc]['href'] = 'get_code/%s'%c['text']
+		if os.path.isfile(os.path.join(settings.CALC,'calcs',re.sub('\.py$','.ipynb',c['text']))):
 			try:
 				#---get the right child index. since this is clumsy we only try
 				ind_ipynb_link = [ii for ii,i in enumerate(plots_tree_raw[cc]['nodes']) 
-					if i['text']=='plot-%s.ipynb'%c['text']][0]
+					if re.match('^.+\.ipynb$',i['text'])][0]
 				plots_tree_raw[cc]['nodes'][ind_ipynb_link]['href'] = 'http://%s:%s/%s?token=%s'%(
 					settings.NOTEBOOK_IP,settings.NOTEBOOK_PORT,'/'.join([
-					'tree','calcs','plot-%s.ipynb'%c['text']]),notebook_token)
+					'tree','calcs',re.sub('\.py$','.ipynb',c['text'])]),notebook_token)
 			except: pass
 	plots_tree = json.dumps(plots_tree_raw)
 	outgoing['trees']['plots'] = {'title':'plots',
@@ -146,15 +155,18 @@ def make_tree_meta_files(outgoing):
 			settings.NOTEBOOK_IP,settings.NOTEBOOK_PORT,'/'.join([
 			'edit',meta_files_rel[c['text']]]),notebook_token)
 	meta_files_tree = json.dumps(meta_files_raw)
-	#---! finish hacking this
+	#---! removed for compatibility with omnicalc development branch
 	if False:
-		meta_files_tree = json.dumps([{"text":os.path.basename(k),"nodes": []} for k in shared_work.work.specs_files])
+		meta_files_tree = json.dumps([{"text":os.path.basename(k),"nodes": []} 
+			for k in shared_work.work.specs_files])
 	outgoing['meta_files'] = dict([(os.path.basename(k),os.path.basename(k)) for k in meta_fns])
 	outgoing['trees']['meta_files'] = {'title':'meta files',
 		'name':'meta_files','name_tree':'meta_files_tree','data':meta_files_tree}
 
 def make_warn_missings(outgoing):
 	"""Warn the user if items are missing from meta."""
+	#---! removed for compatibility with omnicalc development branch
+	return False
 	global shared_work
 	#---! note that this should be modified so it is more elegant
 	outgoing.update(missings=', '.join([i for i in 
@@ -167,6 +179,8 @@ def index(request,pictures=True,workspace=True,show_pictures=False):
 	Simulator index shows: simulations, start button.
 	"""
 	global shared_work
+	#---on the first visit we make the workspace
+	if not shared_work: shared_work = FactoryWorkspace()
 	#---catch post from compute button here
 	if request.method=='POST':
 		#---! note that the underscore transformation could be problematic
@@ -196,8 +210,6 @@ def index(request,pictures=True,workspace=True,show_pictures=False):
 	outgoing.update(notebook_token=notebook_token)
 	#---workspace view includes tiles that mirror the main items in the omnicalc workspace
 	if workspace=='true':
-		#---on the first visit we make the workspace
-		if not shared_work: shared_work = FactoryWorkspace()
 		#---BEGIN POPULATING "outgoing"
 		outgoing['found_meta_changes'] = shared_work.meta_changed()
 		outgoing['workspace_timestamp'] = shared_work.timestamp()
@@ -239,13 +251,21 @@ def get_code(request,name):
 	global notebook_token
 	if not notebook_token: notebook_token = get_notebook_token()
 	outgoing = dict(plotname=name,notebook_token=notebook_token)
-	#---retrieve the raw code
-	path = os.path.join(settings.CALC,'calcs','%s.py'%name)
+	# retrieve the raw code
+	# switched to literal script names from previous versions
+	path = os.path.join(settings.CALC,'calcs',name)
 	with open(path) as fp: raw_code = fp.read()
 	outgoing.update(raw_code=raw_code,path=os.path.basename(path))
-	#---detect an ipynb versions
-	if re.match('^plot-(.+)',name):
-		note_fn = os.path.relpath(os.path.join(settings.CALC,'calcs','%s.ipynb'%name),settings.FACTORY)
+	#---! legacy mode
+	if False:
+		#---detect an ipynb versions
+		if re.match('^plot-(.+)',name):
+			note_fn = os.path.relpath(os.path.join(settings.CALC,'calcs','%s.ipynb'%name),settings.FACTORY)
+			if os.path.isfile(note_fn): outgoing.update(calc_notebook=os.path.basename(note_fn))
+			else: outgoing.update(calc_notebook_make='MAKE')
+	if name in shared_work.plot_scripts:
+		note_fn = os.path.relpath(os.path.join(
+			settings.CALC,'calcs',re.sub('\.py$','.ipynb',name)),settings.FACTORY)
 		if os.path.isfile(note_fn): outgoing.update(calc_notebook=os.path.basename(note_fn))
 		else: outgoing.update(calc_notebook_make='MAKE')
 	return render(request,'calculator/codeview.html',outgoing)
@@ -254,11 +274,58 @@ def make_notebook(request,name):
 	"""
 	Redirect to the ipython notebook make function.
 	"""
-	plotname = re.match('^plot-(.+)',name).group(1)
 	#---extract the name by convention here
-	export_notebook(plotname)
+	export_notebook(name)
 	#---naming convention on the redirect
 	return HttpResponseRedirect(reverse('calculator:get_code',kwargs={'name':name}))
+
+def export_notebook(plotname):
+	"""
+	Convert a plot script into an interactive notebook.
+	Moved this from interact.py for access to shared_work.
+	"""
+	global shared_work
+	header_code = '\n'.join(["plotname = '%s'","#---factory header",
+		"exec(open('../omni/base/header_ipynb.py').read())"])
+	cwd = settings.CALC
+	target = 'calcs/%s'%plotname
+	dest = 'calcs/%s'%re.sub('\.py$','.ipynb',plotname)
+	regex_splitter = r'(\n\#[-\s]*block:.*?\n|\n%%.*?\n)'
+	regex_hashbang = r'^\#.*?\n(.+)$'
+	#---all tabs are converted to spaces because Jupyter
+	tab_width = 4
+	#---make a new notebook
+	nb = nbf.v4.new_notebook()
+	#---read the target plotting script
+	with open(os.path.join(cwd,target)) as fp: text = fp.read()
+	#---write a title
+	stamp = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
+	header_text = ("# %s\n"%plotname+"\n*an OMNICALC plot script*\n\nGenerated on `%s`. "+
+		"Visit the [notebook server](/tree/calc/%s/calcs/) for other calculations.")%(stamp,settings.NAME)
+	nb['cells'].append(nbf.v4.new_markdown_cell(header_text))
+	#---write the header cell
+	nb['cells'].append(nbf.v4.new_code_cell(header_code.strip()%
+		shared_work.plot_scripts[plotname]['plotname']))
+	#---expose ipython commands hidden in the text
+	text_exposed = re.sub('# live:\s+','',text)
+	text_exposed_shell = re.sub('# live shell:','!',text_exposed)
+	#---write the remaining blocks with double-newlines demiting the cells
+	text_no_hashbang = re.match(regex_hashbang,text_exposed_shell,flags=re.M+re.DOTALL).group(1)
+	#---split keeps the delimiters and we associate them with the trailing chunks
+	chunks = re.split(regex_splitter,text_no_hashbang)
+	chunks = [chunks[0]]+[chunks[i]+chunks[i+1] for i in range(1,len(chunks),2)]
+	for chunk in chunks:
+		nb['cells'].append(nbf.v4.new_code_cell(re.sub('\t',' '*tab_width,chunk.strip())))
+	#---check if this is an autoplot
+	if shared_work.plot_scripts[plotname]['autoplot']:
+		nb['cells'].append(nbf.v4.new_code_cell(
+			r"status('this plot script uses the autoplot scheme',tag='note')"+
+			'\n'+'plotrun.loader() # run the loader function'+'\n'+
+			r"status('you must choose to execute one of the available "+
+				r"plots: %s'%"+'\n'+r"', '.join('%s()'%i for i in plotrun.plot_functions),tag='note')"+'\n'
+			r"status('the user must run the plots in a new cell',tag='note')"))
+	#---write the notebook
+	with open(os.path.join(cwd,dest),'w') as fp: nbf.write(nb,fp)
 
 def view_redirector(request):
 	"""
