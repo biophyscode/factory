@@ -217,6 +217,7 @@ class FactoryEnv:
 		Refresh the virtualenvironment.
 		"""
 		if self.use_python2:
+			#! note that anaconda may have deprecated use of env/envs/py2/bin/activate
 			self.loader_commands['env_activate'] = 'env/bin/activate py2'
 			self.source_cmd = 'source env/bin/activate py2'
 		#---we consult a conda YAML file and a PIP text list to install packages
