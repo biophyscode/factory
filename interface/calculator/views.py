@@ -317,7 +317,8 @@ def export_notebook(plotname):
 	for chunk in chunks:
 		nb['cells'].append(nbf.v4.new_code_cell(re.sub('\t',' '*tab_width,chunk.strip())))
 	#---check if this is an autoplot
-	if shared_work.plot_scripts[plotname]['autoplot']:
+	#---! disabled the following extras until we formalize the style guide for interactive scripts
+	if False and shared_work.plot_scripts[plotname]['autoplot']:
 		nb['cells'].append(nbf.v4.new_code_cell(
 			r"status('this plot script uses the autoplot scheme',tag='note')"+
 			'\n'+'plotrun.loader() # run the loader function'+'\n'+
@@ -407,7 +408,7 @@ def make_yaml_file(request):
 	#---skip is set for 2ps since we easily get 200ps in a five-minute villin demo
 	skip = 2
 	master_autogen_meta_fn = 'meta.current.yaml'
-	proc = subprocess.Popen('make look times_json',
+	proc = subprocess.Popen('make look times write_json=True',
 		cwd=settings.CALC,shell=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
 	out,error = proc.communicate()
 	times = json.loads(re.search('^time_table = (.*?)$',out,flags=re.M).group(1))
@@ -450,7 +451,7 @@ def make_look_times(request):
 	#---basic code for the notebook
 	lines = ["cwd = '%s'"%os.path.join(settings.CALC),
 		'import os,sys,subprocess,re,json',
-		"proc = subprocess.Popen('make look times_json',"+
+		"proc = subprocess.Popen('make look times write_json=True',"+'\n'+
 			"cwd=cwd,shell=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE)",
 		'out,error = proc.communicate()',
 		"times = json.loads(re.search('^time_table = (.*?)$',out,flags=re.M).group(1))",
