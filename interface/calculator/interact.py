@@ -8,6 +8,7 @@ import os,sys,json,re,subprocess,datetime,glob,pprint
 import nbformat as nbf
 from django.conf import settings
 from django.http import HttpResponse
+#import collections
 
 import sys
 #---remote imports
@@ -22,7 +23,7 @@ def get_workspace():
 	Get a fresh copy of the workspace. Called by the calculator index function.
 	"""
 	#---! prefer to set the meta_filter somewhere in the factory?
-	work = omnicalc.WorkSpace(cwd=settings.CALC,do_slices=False,checkup=True)
+	work = omnicalc.WorkSpace(cwd=settings.CALC,checkup=True)
 	return work
 
 def make_bootstrap_tree(spec,floor=None,level=None):
@@ -63,47 +64,6 @@ def get_notebook_token():
 		raise Exception('error figuring out jupyter token: %s'%jupyters_by_port)
 	else: return jupyters_by_port.values()[0]
 
-def export_notebook(plotname):
-	"""
-	Requires omnicalc to supply the header
-	"""
-	header_code = '\n'.join(["plotname = '%s'","#---factory header",
-		"exec(open('../omni/base/header_ipynb.py').read())"])
-	cwd = settings.CALC
-	target = 'calcs/plot-%s.py'%plotname
-	dest = 'calcs/plot-%s.ipynb'%plotname
-	regex_splitter = r'(\n\#-*block:.*?\n)'
-	regex_hashbang = r'^\#.*?\n(.+)$'
-	#---all tabs are converted to spaces because Jupyter
-	tab_width = 4
-	#---make a new notebook
-	nb = nbf.v4.new_notebook()
-	#---read the target plotting script
-	with open(os.path.join(cwd,target)) as fp: text = fp.read()
-	#---write a title
-	stamp = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
-	header_text = ("# %s\n"%plotname+"\n*an OMNICALC plot script*\n\nGenerated on `%s`. "+
-		"Visit the [notebook server](/tree/calc/%s/calcs/) for other calculations.")%(stamp,settings.NAME)
-	nb['cells'].append(nbf.v4.new_markdown_cell(header_text))
-	#---write the header cell
-	nb['cells'].append(nbf.v4.new_code_cell(header_code.strip()%plotname))
-	#---write the remaining blocks with double-newlines demiting the cells
-	text_no_hashbang = re.match(regex_hashbang,text,flags=re.M+re.DOTALL).group(1)
-	#---split keeps the delimiters and we associate them with the trailing chunks
-	chunks = re.split(regex_splitter,text_no_hashbang)
-	chunks = [chunks[0]]+[chunks[i]+chunks[i+1] for i in range(1,len(chunks),2)]
-	for chunk in chunks:
-		nb['cells'].append(nbf.v4.new_code_cell(re.sub('\t',' '*tab_width,chunk.strip())))
-	#---check if this is an autoplot
-	#---! currently deprecated because we do not have the workspace 
-	#is_autoplot = work.plots.get(plotname,{}).get('autoplot',False)
-	#if is_autoplot:
-	#	nb['cells'].append(nbf.v4.new_code_cell(
-	#		r"status('[NOTE] this plot script uses the autoplot scheme')"+'\n'
-	#		r"status('[NOTE] load the data by running plotrun.loader()')"+'\n'
-	#		r"status('[NOTE] available plots: %s'%', '.join('%s()'%i for i in plotrun.plot_functions))"))
-	#---write the notebook
-	with open(os.path.join(cwd,dest),'w') as fp: nbf.write(nb,fp)
 
 class FactoryBackrun:
 
@@ -284,11 +244,21 @@ class FactoryWorkspace:
 
 	def refresh(self):
 		"""Get another copy of the workspace. This reimports all data but does not run a calculation."""
-		self.work = omnicalc.WorkSpace(cwd=settings.CALC,do_slices=False,checkup=True)
+		self.work = omnicalc.WorkSpace(cwd=settings.CALC,checkup=True)
 		self.time = datetime.datetime.now()
+		# catalog all plots so we know which ones are candidates for conversion to interactive scripts.
+		# ... note that a valid plot (for interactive mode) is in the plots dictionary and found on disk
+		self.plot_scripts = {}
+		for key in self.work.metadata.plots:
+			script_fn = self.work.metadata.plots[key].get('script','plot-%s.py'%key)
+			if os.path.isfile(os.path.join(settings.CALC,'calcs',script_fn)):
+				self.plot_scripts[script_fn] = {'plotname':key,
+					'autoplot':self.work.metadata.plots[key].get('autoplot',False)}
 
 	def meta_changed(self):
 		"""Check meta files for changes so you can tell the user a refresh may be in order."""
+		#---! removed for compatibility with omnicalc development branch
+		return False
 		mtimes = [os.path.getmtime(i) for i in self.work.specs_files]
 		found_meta_changes = any([self.time<datetime.datetime.fromtimestamp(os.path.getmtime(i)) 
 			for i in self.work.specs_files])

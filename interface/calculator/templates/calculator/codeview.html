@@ -13,8 +13,8 @@
 {% if calc_notebook %}
 <div class="brick">
 <h2>IPython Notebook</h2>
-<ul><li><a href="http://{{ NOTEBOOK_IP }}:{{ NOTEBOOK_PORT }}/tree/calcs/{{ calc_notebook}}?token={{ notebook_token }}" target="_blank">calc/{{ NAME }}/calcs/{{ calc_notebook}}</a></li></ul>
-The factory can automatically convert standard plot codes into IPython notebooks for live editing. 
+<a href="http://{{ NOTEBOOK_IP }}:{{ NOTEBOOK_PORT }}/tree/calcs/{{ calc_notebook}}?token={{ notebook_token }}" target="_blank">calc/{{ NAME }}/calcs/{{ calc_notebook}}</a>
+<br>The factory can automatically convert standard plot codes into IPython notebooks for live editing. 
 The link above points to a notebook that you already created from <code>calc/{{ NAME }}/calcs/{{ path|safe }}</code>. You can regenerate it again by moving or deleting the current copy and returning here.
 </div>
 {% endif %}
@@ -22,8 +22,8 @@ The link above points to a notebook that you already created from <code>calc/{{ 
 {% if calc_notebook_make %}
 <div class="brick">
 <h2>IPython Notebook</h2>
-<ul><li><a href="/calculator/make_notebook/{{ plotname }}">export this code to an IPython notebook</a></li></ul>
-The factory can automatically convert standard plot codes into IPython notebooks for live editing.
+<a href="/calculator/make_notebook/{{ plotname }}">export this code to an IPython notebook</a>
+<br>The factory can automatically convert standard plot codes into IPython notebooks for live editing.
 </div>
 {% endif %}
 
