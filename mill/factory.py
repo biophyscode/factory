@@ -659,6 +659,8 @@ def start_notebook(name,port,public=False,sudo=False):
 			port,('%s '%rate_cmd if rate_cmd else ''),os.path.join(os.getcwd(),'calc',name))
 	#---note that without zeroing port-retries, jupyter just tries random ports nearby (which is bad)
 	else: 
+		#! note try: jupyter notebook password --generate-config connections/config_jupyter_actinlink.py
+		#! ... which will give you a one-per-machine password to link right to the notebook
 		#---! unsetting this variable because some crazy run/user error
 		if 'XDG_RUNTIME_DIR' in os.environ: del os.environ['XDG_RUNTIME_DIR']
 		cmd = (('sudo -i -u %s '%username if sudo else '')+'%s '%(
