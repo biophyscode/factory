@@ -17,7 +17,10 @@ demo:
   post_spot: data/PROJECT_NAME/post
   plot_spot: data/PROJECT_NAME/plot
   simulation_spot: data/PROJECT_NAME/sims
+  # run locally with "make run demo"
+  port: 8020	
   # serve the factory by running "make connect <name> public" and later "make run <name> public"
+  # if you want to change from private to public, you have to reconnect
   public:
     # public port
     port: 8006
