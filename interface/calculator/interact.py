@@ -254,6 +254,12 @@ class FactoryWorkspace:
 			if os.path.isfile(os.path.join(settings.CALC,'calcs',script_fn)):
 				self.plot_scripts[script_fn] = {'plotname':key,
 					'autoplot':self.work.metadata.plots[key].get('autoplot',False)}
+		# add stray plots even if they are not in the plots dictionary
+		for fn_abs in glob.glob(os.path.join(settings.CALC,'calcs','plot-*.py')):
+			fn = os.path.basename(fn_abs)
+			if fn not in self.plot_scripts:
+				self.plot_scripts[fn] = {'plotname':
+					re.match('^plot-(.+)\.py$',os.path.basename(fn)).group(1)}
 
 	def meta_changed(self):
 		"""Check meta files for changes so you can tell the user a refresh may be in order."""
