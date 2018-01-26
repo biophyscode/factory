@@ -57,13 +57,15 @@ def get_notebook_token():
 	"""
 	#---check the notebook log file to get the token
 	with open('logs/notebook.%s'%settings.NAME) as fp: text = fp.read()
-	token_regex = r'http:(?:.*?)\:(\d+)(?:\/\?token=)(.*?)\s.*?(?:\/.+)\s'
+	# note that this token will also match a dummy noticed by the factory run command for using 
+	# ... a password instead of the token
+	token_regex = r'http:(?:.*?)\:(\d+)(?:\/\?token=)(.*?)\s'
 	jupyters_by_port = dict(re.findall(token_regex,text,re.M+re.DOTALL))
 	if len(jupyters_by_port)!=1: 
 		print(text)
-		raise Exception('error figuring out jupyter token: %s'%jupyters_by_port)
+		raise Exception('error figuring out jupyter token: %s. notebook text is:\n%s'%(
+			jupyters_by_port,text))
 	else: return jupyters_by_port.values()[0]
-
 
 class FactoryBackrun:
 
