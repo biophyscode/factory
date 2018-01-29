@@ -12,6 +12,7 @@ urlpatterns = [
 		'show_pictures':True},name='index'),
 	url(r'^clear_logging$',views.clear_logging,name='clear_logging'),
 	url(r'^refresh$',views.refresh,name='refresh'),
+	url(r'^clear_stale$',views.clear_stale,name='refresh'),
 	url(r'^refresh_thumbnails$',views.refresh_thumbnails,name='refresh_thumbnails'),
 	url(r'^compute$',views.compute,name='compute'),
 	url(r'^get_code/(?P<name>.+)$',views.get_code,name='get_code'),
