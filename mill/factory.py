@@ -19,6 +19,7 @@ str_types = [str,unicode] if sys.version_info<(3,0) else [str]
 log_site = 'logs/site.%s'
 log_cluster = 'logs/cluster.%s'
 log_notebook = 'logs/notebook.%s'
+log_token = 'logs/token.%s'
 
 import pwd,grp
 username = pwd.getpwuid(os.getuid())[0]
@@ -661,6 +662,7 @@ def start_notebook(name,port,public=False,sudo=False):
 	else: 
 		#! note try: jupyter notebook password --generate-config connections/config_jupyter_actinlink.py
 		#! ... which will give you a one-per-machine password to link right to the notebook
+		#! ... note that you must write that password to logs/token.PROJECT_NAME with a trailing space!
 		#---! unsetting this variable because some crazy run/user error
 		if 'XDG_RUNTIME_DIR' in os.environ: del os.environ['XDG_RUNTIME_DIR']
 		cmd = (('sudo -i -u %s '%username if sudo else '')+'%s '%(
@@ -673,6 +675,13 @@ def start_notebook(name,port,public=False,sudo=False):
 		scripted=False,kill_switch_coda='rm %s'%lock,sudo=sudo,
 		notes=('# factory run is public' if public else None))
 	if sudo: chown_user(log)
+	#! see the note above about jupyter notebook password. this is a hack to get the password working
+	token_log = log_token%name
+	if public and os.path.isfile(token_log):
+		time.sleep(3) # sleep to be sure that the log is ready
+		with open(token_log) as fp: token = fp.read().strip()
+		# route the token to the notebook log where it is picked up in the usual way
+		with open(log,'a') as fp: fp.write('\n[TOKEN] http://localhost:8888/?token=%s \n'%token)
 	#---note that the calling function should make sure the notebook started
 	return lock,log
 
