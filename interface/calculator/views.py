@@ -60,7 +60,7 @@ def make_tree_calculations(outgoing):
 		#---! high floor for compatibility with omnicalc development branch
 		calcs_tree_raw = list(make_bootstrap_tree(shared_work.work.metadata.calculations,floor=10))
 	else: calcs_tree_raw = []
-	for cc,c in enumerate(calcs_tree_raw): calcs_tree_raw[cc]['href'] = 'get_code/%s'%c['text']
+	for cc,c in enumerate(calcs_tree_raw): calcs_tree_raw[cc]['href'] = 'get_code/%s.py'%c['text']
 	calcs_tree = json.dumps(calcs_tree_raw)
 	outgoing['trees']['calcs'] = {'title':'calculations',
 		'name':'calcs','name_tree':'calcs_tree','data':calcs_tree}
@@ -188,8 +188,12 @@ def index(request,pictures=True,workspace=True,show_pictures=False):
 		meta_fns_avail = glob.glob(os.path.join(settings.CALC,'calcs','specs','*.yaml'))
 		meta_fns = dict([(os.path.basename(k),os.path.basename(k)) 
 			for k in meta_fns_avail])
-		#---checkboxes are only in the POST if they are checked
-		return compute(request,meta_fns=[i for i in meta_fns if 'toggle_%s'%i in request.POST.keys()])
+		if 'button_compute' in request.POST:
+			#---checkboxes are only in the POST if they are checked
+			return compute(request,meta_fns=[i for i in meta_fns if 'toggle_%s'%i in request.POST.keys()])
+		elif 'button_refresh' in request.POST:
+			return refresh(request,meta_fns=meta_fns)
+		else: raise Exception('button failure')
 	#---HTML sends back the status of visible elements so their visibility state does not change
 	#---! needs replaced
 	workspace = request.GET.get('workspace',
@@ -241,8 +245,17 @@ def refresh_thumbnails(request):
 	print('DONE')
 	return view_redirector(request)
 
-def refresh(request):
+def refresh(request,meta_fns=None):
 	"""Refresh the workspace and redirect to the calculator."""
+	# mimic the part of the compute section where we refresh metadata
+	if meta_fns:
+		bash('make unset meta_filter',cwd=settings.CALC,catch=True)
+		bash('make set meta_filter %s'%' '.join(meta_fns),cwd=settings.CALC,catch=True)
+	shared_work.refresh()
+	return view_redirector(request)
+
+def clear_stale(request):
+	shared_work.clear_stale()
 	shared_work.refresh()
 	return view_redirector(request)
 

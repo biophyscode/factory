@@ -8,7 +8,7 @@ import os,sys,json,re,subprocess,datetime,glob,pprint
 import nbformat as nbf
 from django.conf import settings
 from django.http import HttpResponse
-#import collections
+from tools import bash
 
 import sys
 #---remote imports
@@ -63,7 +63,6 @@ def get_notebook_token():
 		print(text)
 		raise Exception('error figuring out jupyter token: %s'%jupyters_by_port)
 	else: return jupyters_by_port.values()[0]
-
 
 class FactoryBackrun:
 
@@ -260,6 +259,10 @@ class FactoryWorkspace:
 			if fn not in self.plot_scripts:
 				self.plot_scripts[fn] = {'plotname':
 					re.match('^plot-(.+)\.py$',os.path.basename(fn)).group(1)}
+
+	def clear_stale(self):
+		try: bash('make clear_stale',cwd=settings.CALC)
+		except: pass
 
 	def meta_changed(self):
 		"""Check meta files for changes so you can tell the user a refresh may be in order."""
