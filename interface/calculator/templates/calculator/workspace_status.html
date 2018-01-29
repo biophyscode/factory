@@ -3,13 +3,13 @@
 <form action="" method="POST">{% csrf_token %}
 
 <div class="btn-group-lg btn-group-vertical">
-<button type="submit" id="run_compute" class="btn btn-large btn-default">
+<button type="submit" name="button_compute" id="run_compute" class="btn btn-large btn-default">
 <strong><code>compute!</code></strong>
 </button>
-<a href="refresh?workspace={{ workspace_visible }}&pictures={{ pictures_visible }}" 
-	id="run_refresh" class="btn btn-large btn-default">
+<button type="submit" href="refresh?workspace={{ workspace_visible }}&pictures={{ pictures_visible }}" 
+	name="button_refresh" id="run_refresh" class="btn btn-large btn-default">
 <strong><code>refresh!</code></strong>
-</a>
+</button>
 
 <!-- <input name="say" id="say" value="Hi"> -->
 
@@ -23,8 +23,10 @@ compute form
 done
 -->
 
-<br><i>select metadata for "compute" otherwise we use the default. 
-note that this sets the <code>meta_filter</code> flag for manual calculations.
+<br><i>Use toggle switches to change the metadata for the "compute" function. 
+To reveal calculations and plots to the interface, update the metadata, select them 
+with the toggls, and use the "refresh" button. 
+Use the <a href="clear_stale">clear_stale</a> function to reset after a failed calculation. 
 </i>
 {% if not meta_files.items %}
 <br><strong>no meta files available yet. use the button below to make the default.</strong><br>
