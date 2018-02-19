@@ -33,7 +33,7 @@ class SimulationSettingsForm(forms.Form):
 			for group_num,(named_settings,specs) in enumerate(settings_blocks.items()):
 				for key,val in specs['settings'].items():
 					mods = dict(max_length=255,initial=val)
-					if key in specs['multi']: mods.update(widget=forms.Textarea)
+					if key in specs['multi']: mods.update(widget=forms.Textarea(attrs=dict(rows=4,width="100%")))
 					self.fields[named_settings+'|'+key] = forms.CharField(**mods)
 					self.fields[named_settings+'|'+key].label = re.sub('_',' ',key.lower())
 					self.fields[named_settings+'|'+key].group = group_num
@@ -48,8 +48,9 @@ class CoordinatesSelectorForm(forms.Form):
 		#---! conditions on adding sources? or do we just carte blanche copy them into inputs?
 		source_choices = [[obj.id,obj.name] for obj in Coordinates.objects.all()]
 		self.fields['source'] = forms.MultipleChoiceField(required=False,choices=source_choices,
-			help_text='to use a custom structure, set both "pdb source" and "start structure" to "none" '+
-			'and select a "Coordinates" object here')
+			help_text='Custom coordinates can be uploaded from the simulator page and selected here. '
+			'Note that some experiments require you to set another flag '
+			'(e.g. "pdb source") to "none" in order to use this feature.')
 
 def validate_file_extension(value):
 	if not re.match('^.+\.pdb$',value):
@@ -71,4 +72,3 @@ class build_form_upload_coords(forms.ModelForm):
 				'field "{fieldname}" is required'.format(fieldname=field.label)}
 		for field in self.fields: self.fields[field].label = field.lower()
 		self.fields['files'].label = ''
-

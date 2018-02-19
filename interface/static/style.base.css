@@ -43,6 +43,23 @@
     color: gray;
 }
 
+.brick_table td:last-child {
+  width: 100%;
+}
+/* monospace text entry */
+.brick_table td:last-child input[type="text"],textarea {
+  font-family: monospace;
+  font-size: 12pt;
+  width: 100%;
+  resize: none;
+}
+/* simulation detail has monospace labels, no label line breaks */
+.brick_detail {
+  white-space: nowrap;
+  font-family: monospace;
+}
+#id_source { width: 100%; border: 1px solid lightgray; }
+
 .panel-heading .accordion-toggle.collapsed:after {
     content: "\25BA";
 }

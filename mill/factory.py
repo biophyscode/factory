@@ -648,6 +648,10 @@ def start_notebook(name,port,public=False,sudo=False):
 	#---note that TERM safely closes the notbook server
 	lock = 'pid.%s.notebook.lock'%name
 	log = log_notebook%name
+	# root location to serve the notebook
+	note_root = os.path.join(os.getcwd(),'calc',name)
+	#! demo to try to serve higher for automacs simulations via notebook
+	note_root = os.getcwd()
 	#---higher rates
 	rate_cmd = '--NotebookApp.iopub_data_rate_limit=10000000'
 	#---if you want django data in IPython, use:
@@ -657,7 +661,7 @@ def start_notebook(name,port,public=False,sudo=False):
 	#---! `sudo make run <name> public` which prevents us from having to add sudo ourselves
 	if not public:
 		cmd = 'jupyter notebook --no-browser --port %d --port-retries=0 %s--notebook-dir="%s"'%(
-			port,('%s '%rate_cmd if rate_cmd else ''),os.path.join(os.getcwd(),'calc',name))
+			port,('%s '%rate_cmd if rate_cmd else ''),note_root)
 	#---note that without zeroing port-retries, jupyter just tries random ports nearby (which is bad)
 	else: 
 		#! note try: jupyter notebook password --generate-config connections/config_jupyter_actinlink.py
@@ -670,7 +674,7 @@ def start_notebook(name,port,public=False,sudo=False):
 			('--user=%s '%username if sudo else '')+(' %s '%rate_cmd if rate_cmd else '')+
 			'--port-retries=0 '+'--port=%d --no-browser --ip="%s" --notebook-dir="%s"'%(port,
 				notebook_ip if not public_details.get('jupyter_localhost',False) else 'localhost',
-				os.path.join(os.getcwd(),'calc',name)))
+				note_root))
 	backrun(cmd=cmd,log=log,stopper=lock,killsig='TERM',
 		scripted=False,kill_switch_coda='rm %s'%lock,sudo=sudo,
 		notes=('# factory run is public' if public else None))

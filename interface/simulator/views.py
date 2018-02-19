@@ -117,8 +117,13 @@ def detail_simulation(request,id):
 	"""
 	Detailed view of a simulation with tuneable parameters if the job is not yet submitted.
 	"""
+	# it is rare to get to a simulation detail without a token, but it happened once so we check it here
+	global notebook_token
+	# get the notebook token once and hold it in memory
+	if not notebook_token: notebook_token = get_notebook_token()
+
 	sim = get_object_or_404(Simulation,pk=id)
-	outgoing = dict(sim=sim)
+	outgoing = dict(sim=sim,notebook_token=notebook_token)
 
 	#---always show the config
 	config = {}
@@ -167,7 +172,7 @@ def detail_simulation(request,id):
 				#---a single settings block for a standard run
 				settings_blocks = {'settings':{'settings':yamlb(expt['settings']),
 					'multi':[i[0] for i in re.findall(regex_block_standard,expt['settings'],
-					flags=re.M+re.DOTALL)]}}
+					flags=re.M+re.DOTALL)]+['mdp_specs']}}
 			elif run_expts!=[]:
 				settings_blocks = {}
 				#---parse each JSON experiment file and add to outgoing
@@ -180,7 +185,7 @@ def detail_simulation(request,id):
 					settings_blocks['settings, step %d'%(mnum+1)] = {
 						'settings':yamlb(expt['settings']),
 						'multi':[i[0] for i in re.findall(regex_block_standard,expt['settings'],
-						flags=re.M+re.DOTALL)]}
+						flags=re.M+re.DOTALL)]+['mdp_specs']}
 			else: raise Exception('failed to find the correct experiment JSON files')
 			form = SimulationSettingsForm(initial={'settings_blocks':settings_blocks})
 			#---prepare fieldsets as a loop over the blocks of settings, one per run
@@ -190,40 +195,51 @@ def detail_simulation(request,id):
 			#---! add a condition for whether we need a coordinate here? only some methods actually use it
 			form_source = CoordinatesSelectorForm()
 			outgoing['fieldsets'].append(FieldSet(form_source,['source'],
-				legend="fetch coordinates"))
+				legend="coordinates"))
 			outgoing['fieldsets'] = tuple(outgoing['fieldsets'])
 		#---on submission we prepare the job
 		else:
 			form = SimulationSettingsForm(request.POST,request.FILES)
 			form_source = CoordinatesSelectorForm(request.POST,request.FILES)
-			#---note that the form validator applies here. Using "None" in the settings will cause some 
-			#---...settings to be blank on the form and excepted on post. use "none" to get around this
-			#---note that if the form is invalid the site will complain and keep you there
+			# note that the form validator applies here. Using "None" in the settings will cause some 
+			# ... settings to be blank on the form and excepted on post. use "none" to get around this
+			# note that if the form is invalid the site will complain and keep you there
 			if form.is_valid() and form_source.is_valid():
-				#---unpack the form
-				unpacked_form = [(i.split('|'),j) for i,j in form.data.items() if '|' in i]
-				settings_blocks = dict([(k[0],{}) for k,v in unpacked_form])
-				for (run_name,key),val in unpacked_form: settings_blocks[run_name][key] = val
-				#---note that a one-block run is a standard run (not a metarun)
-				if len(settings_blocks)==1:
-					submit_fn = make_run(expt=settings_blocks['settings'],cwd=sim.path)
-				else:
-					submit_fn = make_metarun(expt=settings_blocks,cwd=sim.path)
-				sim.status = 'submitted:%s'%submit_fn
-				sim.save()
-				#---process any incoming sources
-				pks = form_source.cleaned_data['source']
-				#---! implement input folders here at some point, perhaps using an alternate data structure
-				if len(pks)>=1:
-					if len(pks)>1:
-						return HttpResponse('cannot parse incoming coordinates request: %s'%
-							str(form_source.cleaned_data))
-					obj = Coordinates.objects.get(pk=pks[0])
-					#---copy the coordinate to the automacs simulation, where it is automatically picked up
-					#---...from the root of the inputs folder (assume no other PDB file there)
-					shutil.copyfile(os.path.join(settings.COORDS,obj.name),
-						os.path.join(settings.SIMSPOT,sim.path,'inputs',obj.name))
-				return HttpResponseRedirect(reverse('simulator:detail_simulation',kwargs={'id':sim.id}))
+				if 'method_auto' in request.POST:
+					# unpack the form
+					unpacked_form = [(i.split('|'),j) for i,j in form.data.items() if '|' in i]
+					settings_blocks = dict([(k[0],{}) for k,v in unpacked_form])
+					for (run_name,key),val in unpacked_form: settings_blocks[run_name][key] = val
+					# note that a one-block run is a standard run (not a metarun)
+					if len(settings_blocks)==1:
+						submit_fn = make_run(expt=settings_blocks['settings'],cwd=sim.path)
+					else: 
+						submit_fn = make_metarun(expt=settings_blocks,cwd=sim.path)
+					sim.status = 'submitted:%s'%submit_fn
+					sim.save()
+					# process any incoming sources
+					pks = form_source.cleaned_data['source']
+					#! implement input folders here at some point, perhaps using an alternate data structure
+					if len(pks)>=1:
+						if len(pks)>1:
+							return HttpResponse('cannot parse incoming coordinates request: %s'%
+								str(form_source.cleaned_data))
+						obj = Coordinates.objects.get(pk=pks[0])
+						# copy the coordinate to the automacs simulation, where it is automatically picked up
+						# ... from the root of the inputs folder (assume no other PDB file there)
+						shutil.copyfile(os.path.join(settings.COORDS,obj.name),
+							os.path.join(settings.SIMSPOT,sim.path,'inputs',obj.name))
+					return HttpResponseRedirect(reverse('simulator:detail_simulation',kwargs={'id':sim.id}))
+				elif 'method_manual' in request.POST:
+					"""
+					By this point, clicking the experiment button has run `make prep` and the simulation
+					has the scripts and json files ready. To customize in IPython, then, we only need to
+					read the expt JSON files and scripts and put them into an interactive notebook and then
+					change the simulation state to note that we are now off-pathway.
+					"""
+					export_notebook_simulation(sim)
+					return HttpResponseRedirect(reverse('simulator:detail_simulation',kwargs={'id':sim.id}))
+				else: raise Exception('button failure')
 
 	#---submitted and running jobs
 	if re.match('^submitted:.+$',sim.status):
@@ -232,6 +248,10 @@ def detail_simulation(request,id):
 		#---only show the ajax console if we are running
 		if statuses[sim.name]['stat']=='running':
 			outgoing.update(logging=os.path.basename(statuses[sim.name]['fn']))
+
+	if sim.status=='manual_interactive_run':
+		fn = os.path.relpath(os.path.join(settings.SIMSPOT,sim.path,'simulation.ipynb'),os.getcwd())
+		outgoing.update(manual_interactive_state=fn)
 
 	if False:
 		#---submitted and running jobs
@@ -305,3 +325,95 @@ def sim_console(request,log_fn):
 		with open(os.path.join(settings.CLUSTER,log_fn)) as fp: text = fp.read()
 		return JsonResponse({'line':text,'running':True})
 	except: return JsonResponse({'line':'idle','running':False})
+
+def export_notebook_simulation(sim,tab_width=4):
+	"""
+	Convert a plot script into an interactive notebook.
+	Moved this from interact.py for access to shared_work.
+	"""
+	cwd = os.path.join(settings.SIMSPOT,sim.path)
+	target_notebook = os.path.join(cwd,'simulation.ipynb')
+	if os.path.isfile(target_notebook):
+		raise Exception('development: redirect to %s'%target_notebook)
+
+	# assume that we have done `make prep` to arrive here hence the expt_N.json and script_N.json files
+	# ... are ready to go. we simply intervene to change to an interactive notebook
+	fn_register = {}
+	for base,suffix in [('script','py'),('expt','json')]:
+		fns = map(lambda x:os.path.basename(x),glob.glob(os.path.join(cwd,'%s*.%s'%(base,suffix))))
+		singleton = '%s.%s'%(base,suffix)
+		if singleton in fns and len(fns)!=1: raise Exception('invalid files: %s'%fns)
+		elif fns==[singleton]: 
+			fn_register[base] = fns
+			fn_register['%s_indices'%base] = None
+		else: 
+			key_by = lambda x:int(re.match('^%s_(\d+)\.%s$'%(base,suffix),x).group(1))
+			fn_register[base] = sorted(fns,key=key_by)
+			fn_register['%s_indices'%base] = sorted(map(key_by,fns))
+	if fn_register['script_indices']!=fn_register['expt_indices']: 
+		raise Exception('invalid files: %s'%fn_register)
+	mode = 'run' if fn_register['expt_indices']==None else 'metarun'
+
+	stamp = datetime.datetime.now().strftime('%Y.%m.%d.%H%M.%S')
+	useful_info = {'root':os.path.abspath(cwd),'stamp':stamp,'name':sim.name,'experiment':sim.experiment,
+		'experiment_fns':[str(i) for i in fn_register['expt']] if fn_register!=None else ['expt.json']}
+
+	note_flow = ("""## instructions\n
+	All simulations start from metadata encoded in an experiment file (those matching "`*_expts.py`"). 
+	If you arrived here from the factory-simulator page, you have already chosen an experiment which has 
+	been prepared on disk at `%(root)s`. There are two sections in this interactive script. The 
+	"experiment file" section lets you override or customize the experiment files (`%(experiment_fns)s`). 
+	The "simulation script" section contains the Python script(s) which run the simulations. These scripts 
+	use AUTOMACS-specific handling functions loaded from the `amx` library and get specific instructions 
+	from the experiment files. Use cell magic with "`! make clean sure && make prep %(experiment)s`" to 
+	start from scratch.
+	"""%useful_info)
+	note_run = ('Once you have prepared the experiment above, use the following cell to run the simulation. '
+		'Note that you can log off and return once it is finished.')
+
+	import nbformat as nbf
+	# make a new notebook
+	nb = nbf.v4.new_notebook()
+	header_text = ('\n\n'.join(["# `%(name)s`",
+		'*an AUTOMACS simulation*','Generated from the "`%(experiment)s`"" experiment.',
+		'Generated on `%(stamp)s`.','Data are saved at `%(root)s`.']))%useful_info
+	nb['cells'].append(nbf.v4.new_markdown_cell(header_text))
+	nb['cells'].append(nbf.v4.new_markdown_cell(re.sub('\t','',note_flow)))
+	for snum,(script,expt) in enumerate(zip(fn_register['script'],fn_register['expt'])):
+		if mode=='metarun': 
+			nb['cells'].append(nbf.v4.new_markdown_cell('## experiment settings: step %d'%snum))
+		elif mode=='run': nb['cells'].append(nbf.v4.new_markdown_cell('## experiment settings'))
+		else: raise Exception
+		with open(os.path.join(cwd,expt)) as fp: expt_raw = json.loads(fp.read())
+		rewrite_seq = [
+			'import os,json',
+			'with open(\'%s\') as fp: expt = json.loads(fp.read())'%expt,
+			'expt.update(settings=settings_%s)'%re.sub('\.json','',expt),
+			'with open(\'%s\',\'w\') as fp: fp.write(json.dumps(expt))'%expt,]
+		nb['cells'].append(nbf.v4.new_code_cell(
+			'settings_%s = """%s"""\n\n'%(re.sub('\.json','',expt),expt_raw['settings'])+
+			'\n'.join(rewrite_seq)))
+	for snum,(script,expt) in enumerate(zip(fn_register['script'],fn_register['expt'])):
+		if mode=='metarun': 
+			nb['cells'].append(nbf.v4.new_markdown_cell('## simulation script: step %d'%snum))
+		elif mode=='run': nb['cells'].append(nbf.v4.new_markdown_cell('## simulation script'))
+		else: raise Exception
+		# write the script
+		with open(os.path.join(cwd,script)) as fp: script_text = fp.read()
+		if mode=='metarun': 
+			script_text_mod = '%s\n%s\n%s\n%s'%(
+				'%%capture output',
+				'import shutil\nshutil.copyfile(\'%s\',\'%s\')'%(
+				expt,'expt.json'),re.sub('#!/usr/bin/env python\n+','',script_text.strip(),re.M),
+				'print(\'[STATUS] complete!\')\noutput.show()')
+			nb['cells'].append(nbf.v4.new_code_cell(re.sub('\t',' '*tab_width,script_text_mod)))
+		elif mode=='run': 
+			script_text_mod = '%s\n%s\n%s'%(
+				'%%capture output',
+				script_text.strip(),'print(\'[STATUS] complete!\')\noutput.show()')
+			nb['cells'].append(nbf.v4.new_code_cell(re.sub('\t',' '*tab_width,script_text_mod)))
+		else: raise Exception
+	# write the notebook
+	with open(os.path.join(cwd,target_notebook),'w') as fp: nbf.write(nb,fp)
+	sim.status = 'manual_interactive_run'
+	sim.save()

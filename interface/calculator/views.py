@@ -117,7 +117,7 @@ def make_tree_plots(outgoing):
 					if re.match('^.+\.ipynb$',i['text'])][0]
 				plots_tree_raw[cc]['nodes'][ind_ipynb_link]['href'] = 'http://%s:%s/%s?token=%s'%(
 					settings.NOTEBOOK_IP,settings.NOTEBOOK_PORT,'/'.join([
-					'tree','calcs',re.sub('\.py$','.ipynb',c['text'])]),notebook_token)
+					'tree','calc',settings.NAME,'calcs',re.sub('\.py$','.ipynb',c['text'])]),notebook_token)
 			except: pass
 	plots_tree = json.dumps(plots_tree_raw)
 	outgoing['trees']['plots'] = {'title':'plots',
@@ -153,7 +153,7 @@ def make_tree_meta_files(outgoing):
 		meta_files_raw[cc]['selectable'] = False
 		meta_files_raw[cc]['href'] = 'http://%s:%s/%s?token=%s'%(
 			settings.NOTEBOOK_IP,settings.NOTEBOOK_PORT,'/'.join([
-			'edit',meta_files_rel[c['text']]]),notebook_token)
+			'edit','calc',settings.NAME,meta_files_rel[c['text']]]),notebook_token)
 	meta_files_tree = json.dumps(meta_files_raw)
 	#---! removed for compatibility with omnicalc development branch
 	if False:
@@ -487,5 +487,5 @@ def make_look_times(request):
 		nb['cells'].append(nbf.v4.new_code_cell(re.sub('\t',' '*tab_width,chunk.strip())))
 	#---write the notebook
 	with open(out_fn,'w') as fp: nbf.write(nb,fp)
-	return redirect("http://%s:%s/tree/calcs/look-times.ipynb?token=%s"%(
-		settings.NOTEBOOK_IP,settings.NOTEBOOK_PORT,notebook_token))
+	return redirect("http://%s:%s/tree/%s/calcs/look-times.ipynb?token=%s"%(
+		settings.NOTEBOOK_IP,settings.NOTEBOOK_PORT,'calc/%s'%settings.NAME,notebook_token))

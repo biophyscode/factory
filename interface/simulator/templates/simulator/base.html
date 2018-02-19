@@ -33,6 +33,16 @@ $(document).ready(function () {
     $grid.masonry('layout');
 });
 
+// toggle config block
+$('#toggle_config_block').change(function(){
+    if ($(this).is(':checked')) {
+        $("#config_block").show();
+    } else {
+        $("#config_block").hide();
+    };
+    $grid.masonry('layout');
+});
+
 </script>
 
 </body>
