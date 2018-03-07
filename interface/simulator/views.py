@@ -402,16 +402,18 @@ def export_notebook_simulation(sim,tab_width=4):
 		with open(os.path.join(cwd,script)) as fp: script_text = fp.read()
 		if mode=='metarun': 
 			script_text_mod = '%s\n%s\n%s\n%s'%(
-				'%%capture output',
+				'%%capture '+'output_%d'%snum,
 				'import shutil\nshutil.copyfile(\'%s\',\'%s\')'%(
 				expt,'expt.json'),re.sub('#!/usr/bin/env python\n+','',script_text.strip(),re.M),
-				'print(\'[STATUS] complete!\')\noutput.show()')
+				'print(\'[STATUS] complete!\')')
 			nb['cells'].append(nbf.v4.new_code_cell(re.sub('\t',' '*tab_width,script_text_mod)))
+			nb['cells'].append(nbf.v4.new_code_cell('output_%d.show()'%snum))
 		elif mode=='run': 
 			script_text_mod = '%s\n%s\n%s'%(
 				'%%capture output',
-				script_text.strip(),'print(\'[STATUS] complete!\')\noutput.show()')
+				script_text.strip(),'print(\'[STATUS] complete!\')')
 			nb['cells'].append(nbf.v4.new_code_cell(re.sub('\t',' '*tab_width,script_text_mod)))
+			nb['cells'].append(nbf.v4.new_code_cell('output.show()'))
 		else: raise Exception
 	# write the notebook
 	with open(os.path.join(cwd,target_notebook),'w') as fp: nbf.write(nb,fp)
