@@ -356,27 +356,27 @@ def export_notebook_simulation(sim,tab_width=4):
 
 	stamp = datetime.datetime.now().strftime('%Y.%m.%d.%H%M.%S')
 	useful_info = {'root':os.path.abspath(cwd),'stamp':stamp,'name':sim.name,'experiment':sim.experiment,
-		'experiment_fns':[str(i) for i in fn_register['expt']] if fn_register!=None else ['expt.json']}
+		'experiment_fns':', '.join([str(i) for i in fn_register['expt']]) 
+		if fn_register!=None else ['expt.json']}
 
 	note_flow = ("""## instructions\n
-	All simulations start from metadata encoded in an experiment file (those matching "`*_expts.py`"). 
-	If you arrived here from the factory-simulator page, you have already chosen an experiment which has 
-	been prepared on disk at `%(root)s`. There are two sections in this interactive script. The 
-	"experiment file" section lets you override or customize the experiment files (`%(experiment_fns)s`). 
-	The "simulation script" section contains the Python script(s) which run the simulations. These scripts 
-	use AUTOMACS-specific handling functions loaded from the `amx` library and get specific instructions 
-	from the experiment files. Use cell magic with "`! make clean sure && make prep %(experiment)s`" to 
-	start from scratch.
+	All simulations start from an experiment file (matching `*_expts.py`). 
+	If you arrived here from the factory-simulator page, you have already chosen an experiment 
+	which has been written to disk in JSON format (`%(experiment_fns)s`). 
+	The following interactive script has two sections.\n
+	1. The "experiment file" section lets you customize and then re-write the experiment files to disk.
+	2. The "simulation script" section contains the Python script(s) which run the simulations.\n
+	If you encounter errors, you can start from scratch in a new cell via: 
+	`! make clean sure && make prep %(experiment)s`\n
+	The simulation is stored at: `%(root)s`\n
 	"""%useful_info)
-	note_run = ('Once you have prepared the experiment above, use the following cell to run the simulation. '
-		'Note that you can log off and return once it is finished.')
 
 	import nbformat as nbf
 	# make a new notebook
 	nb = nbf.v4.new_notebook()
 	header_text = ('\n\n'.join(["# `%(name)s`",
-		'*an AUTOMACS simulation*','Generated from the "`%(experiment)s`"" experiment.',
-		'Generated on `%(stamp)s`.','Data are saved at `%(root)s`.']))%useful_info
+		'*an AUTOMACS simulation*','Generated from the `%(experiment)s` experiment.',
+		'Generated on: `%(stamp)s`','Data are saved at: `%(root)s`']))%useful_info
 	nb['cells'].append(nbf.v4.new_markdown_cell(header_text))
 	nb['cells'].append(nbf.v4.new_markdown_cell(re.sub('\t','',note_flow)))
 	for snum,(script,expt) in enumerate(zip(fn_register['script'],fn_register['expt'])):
@@ -395,25 +395,24 @@ def export_notebook_simulation(sim,tab_width=4):
 			'\n'.join(rewrite_seq)))
 	for snum,(script,expt) in enumerate(zip(fn_register['script'],fn_register['expt'])):
 		if mode=='metarun': 
-			nb['cells'].append(nbf.v4.new_markdown_cell('## simulation script: step %d'%snum))
-		elif mode=='run': nb['cells'].append(nbf.v4.new_markdown_cell('## simulation script'))
+			nb['cells'].append(nbf.v4.new_markdown_cell('## simulation script: step %d\n\n'%snum+
+				'note: you can run this script here, or in the terminal via "`python script_%d.py`"'%snum))
+		elif mode=='run': 
+			nb['cells'].append(nbf.v4.new_markdown_cell('## simulation script\n\n'+
+				'note: you can run this script here, or in the terminal via `python script.py`'))
 		else: raise Exception
 		# write the script
 		with open(os.path.join(cwd,script)) as fp: script_text = fp.read()
 		if mode=='metarun': 
-			script_text_mod = '%s\n%s\n%s\n%s'%(
-				'%%capture '+'output_%d'%snum,
+			script_text_mod = '%s\n%s\n%s'%(
 				'import shutil\nshutil.copyfile(\'%s\',\'%s\')'%(
 				expt,'expt.json'),re.sub('#!/usr/bin/env python\n+','',script_text.strip(),re.M),
 				'print(\'[STATUS] complete!\')')
 			nb['cells'].append(nbf.v4.new_code_cell(re.sub('\t',' '*tab_width,script_text_mod)))
-			nb['cells'].append(nbf.v4.new_code_cell('output_%d.show()'%snum))
 		elif mode=='run': 
-			script_text_mod = '%s\n%s\n%s'%(
-				'%%capture output',
+			script_text_mod = '%s\n%s'%(
 				script_text.strip(),'print(\'[STATUS] complete!\')')
 			nb['cells'].append(nbf.v4.new_code_cell(re.sub('\t',' '*tab_width,script_text_mod)))
-			nb['cells'].append(nbf.v4.new_code_cell('output.show()'))
 		else: raise Exception
 	# write the notebook
 	with open(os.path.join(cwd,target_notebook),'w') as fp: nbf.write(nb,fp)
