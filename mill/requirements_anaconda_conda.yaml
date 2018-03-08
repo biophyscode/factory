@@ -36,3 +36,5 @@ dependencies:
   - sphinx
   - numpydoc
   - sqlalchemy
+  # typing must be installed here or errors on `make connect`
+  - typing
