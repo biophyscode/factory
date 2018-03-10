@@ -652,8 +652,8 @@ def start_notebook(name,port,public=False,sudo=False):
 	note_root = os.path.join(os.getcwd(),'calc',name)
 	#! demo to try to serve higher for automacs simulations via notebook
 	note_root = os.getcwd()
-	#---higher rates
-	rate_cmd = '--NotebookApp.iopub_data_rate_limit=10000000'
+	#---higher rates (increased from 10M to 10**10 for XTC downloads)
+	rate_cmd = '--NotebookApp.iopub_data_rate_limit=10000000000'
 	#---if you want django data in IPython, use:
 	#---...'python site/%s/manage.py shell_plus --notebook --no-browser'%name,
 	#---! we never figured out how to set ports, other jupyter settings, with shell_plus
