@@ -450,7 +450,7 @@ def make_yaml_file(request):
 	if not os.path.exists(os.path.join(settings.CALC,'calcs','specs')):
 		os.makedirs(os.path.join(settings.CALC,'calcs','specs'))
 	with open(os.path.join(settings.CALC,'calcs','specs',master_autogen_meta_fn),'w') as fp:
-		fp.write(yaml.safe_dump(new_meta))
+		fp.write(yaml.safe_dump(new_meta,default_flow_style=False))
 	return view_redirector(request)	
 
 def make_look_times(request):
