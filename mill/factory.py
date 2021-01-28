@@ -499,7 +499,7 @@ def collect_connections(name):
 	#---read all connection files into one dictionary
 	toc = read_connection(*connects)
 	if name and name not in toc: raise Exception('cannot find project named "%s" in the connections'%name)
-        return toc
+	return toc
 
 def connect(name=None,public=False):
 	"""
