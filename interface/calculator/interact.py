@@ -8,7 +8,7 @@ import os,sys,json,re,subprocess,datetime,glob,pprint
 import nbformat as nbf
 from django.conf import settings
 from django.http import HttpResponse
-from tools import bash
+from .tools import bash
 
 import sys
 #---remote imports

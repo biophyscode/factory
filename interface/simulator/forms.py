@@ -1,6 +1,6 @@
 from django import forms
 from .models import *
-from upload_multiple import *
+from .upload_multiple import *
 
 import re
 from django.core.exceptions import ValidationError

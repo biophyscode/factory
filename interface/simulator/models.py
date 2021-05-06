@@ -39,7 +39,7 @@ class Simulation(models.Model):
 		if re.match('^\s*$',self.path) or not os.path.isdir(os.path.join(settings.SIMSPOT,self.path)):
 			print('[WARNING] that simulation cannot be found or deleted (path="%s")'%self.path)
 		else: shutil.rmtree(os.path.join(settings.SIMSPOT,self.path))
-		print '[STATUS] done'
+		print('[STATUS] done')
 		super(Simulation,self).delete()
 
 class Kickstart(models.Model):

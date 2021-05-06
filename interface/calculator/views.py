@@ -7,9 +7,9 @@ from django.http import JsonResponse
 from .models import *
 import nbformat as nbf
 
-from interact import make_bootstrap_tree,get_notebook_token
-from interact import FactoryWorkspace,PictureAlbum,FactoryBackrun
-from tools import bash
+from .interact import make_bootstrap_tree,get_notebook_token
+from .interact import FactoryWorkspace,PictureAlbum,FactoryBackrun
+from .tools import bash
 
 import os,json,re,datetime,time,glob,pprint,subprocess,yaml,copy
 

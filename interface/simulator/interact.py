@@ -3,7 +3,7 @@
 from django.conf import settings
 from django.http import HttpResponse,HttpResponseRedirect
 from django.core.urlresolvers import reverse
-from tools import bash
+from .tools import bash
 from .models import Kickstart,Simulation
 
 import json,datetime,shutil

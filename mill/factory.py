@@ -86,7 +86,7 @@ STATIC_ROOT = os.path.join(BASE_DIR,'static_root')
 TEMPLATES[0]['OPTIONS']['libraries'] = {'code_syntax':'calculator.templatetags.code_syntax'}
 TEMPLATES[0]['OPTIONS']['context_processors'].append('calculator.context_processors.global_settings')
 #---all customizations
-from custom_settings import *
+from .custom_settings import *
 #---addenda from custom settings
 ALLOWED_HOSTS += extra_allowed_hosts
 """

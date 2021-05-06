@@ -6,8 +6,8 @@ from django.conf import settings
 from django.http import JsonResponse
 from .forms import *
 from .models import *
-from interact import *
-from tools import import_remote,yamlb
+from .interact import *
+from .tools import import_remote,yamlb
 import os,json,glob
 
 from calculator.interact import get_notebook_token
